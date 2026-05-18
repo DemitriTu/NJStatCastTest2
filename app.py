@@ -1,7 +1,6 @@
 """
 Streamlit dashboard: NJ high school basketball margin leaderboard.
 """
-#test ignore
 
 from __future__ import annotations
 
