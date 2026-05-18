@@ -19,8 +19,8 @@ DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 SCRAPER = SCRIPT_DIR / "scraper.py"
 DEFAULT_SEASON = "2025-2026"
 ALL_CONFERENCES = "All conferences"
-NET_WEIGHT_WIN = 0.4
-NET_WEIGHT_SOS = 0.4
+NET_WEIGHT_WIN = 0.3
+NET_WEIGHT_SOS = 0.5
 NET_WEIGHT_MARGIN = 0.2
 NET_COMPONENTS = ("Win_Pct", "SOS", "Avg_Margin")
 NET_WEIGHTS = {
@@ -31,25 +31,88 @@ NET_WEIGHTS = {
 # Full statewide run: conferences + one schedule page per team for SOS (often 1–3+ hours).
 SCRAPER_TIMEOUT_SEC = int(os.environ.get("STREAMLIT_SCRAPER_TIMEOUT_SEC", "10800"))
 
+# (display label, header tooltip) for st.dataframe column_config
+COLUMN_HELP: dict[str, tuple[str, str]] = {
+    "Rank": ("Rank", "Order by Net rating within the current view (statewide or selected conference)."),
+    "Net": (
+        "Net",
+        "Composite rating: 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin). "
+        "Each input is min–max scaled to 0–1 in the current view.",
+    ),
+    "Team": ("Team", "School name from NJ.com standings."),
+    "Conference": ("Conference", "NJ.com conference assignment for this season."),
+    "GP": ("GP", "Games played (wins + losses)."),
+    "Win_Pct": ("Win%", "Season winning percentage (wins ÷ games played)."),
+    "PF": ("PF", "Total points scored this season."),
+    "PA": ("PA", "Total points allowed this season."),
+    "Pace": (
+        "Pace",
+        "Average of points for and points against per game: ((PF/GP) + (PA/GP)) ÷ 2.",
+    ),
+    "Avg_Margin": (
+        "Avg Margin",
+        "Average scoring margin per game: (PF − PA) ÷ GP.",
+    ),
+    "SOS": (
+        "SOS",
+        "Strength of schedule: (2 × opponents' avg win% + opponents' opponents' avg win%) ÷ 3.",
+    ),
+    "Opp_Win_Pct": (
+        "Opp Win%",
+        "Average season win% of opponents on this team's schedule.",
+    ),
+    "Opp_Opp_Win_Pct": (
+        "Opp Opp Win%",
+        "Average win% of opponents' opponents (second-order schedule strength).",
+    ),
+}
+
 DARK_CSS = """
 <style>
     .stApp {
         background-color: #0d1117;
-        color: #f0f6fc;
+        color: #c9d1d9;
+        font-weight: 500;
     }
     .stApp header[data-testid="stHeader"] {
         background-color: #010409;
         border-bottom: 1px solid #30363d;
     }
-    [data-testid="stMarkdownContainer"] p, h1, h2, h3 {
-        color: #f0f6fc !important;
+    [data-testid="stMarkdownContainer"] p {
+        color: #b1bac4 !important;
+        font-weight: 500;
+    }
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3 {
+        color: #e6edf3 !important;
+        font-weight: 600;
     }
     div[data-testid="stVerticalBlock"] > div {
-        color: #f0f6fc;
+        color: #c9d1d9;
     }
     [data-testid="stDataFrame"] {
         border: 1px solid #30363d;
         border-radius: 6px;
+        color: #0d1117;
+        font-weight: 500;
+    }
+    [data-testid="stDataFrame"] div[role="gridcell"],
+    [data-testid="stDataFrame"] div[role="columnheader"],
+    [data-testid="stDataFrame"] span {
+        color: #0d1117 !important;
+        font-weight: 500;
+    }
+    [data-testid="stDataFrame"] div[role="columnheader"] {
+        font-weight: 600;
+    }
+    [data-testid="stMetric"] label {
+        color: #6e7681 !important;
+        font-weight: 500;
+    }
+    [data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #e6edf3 !important;
+        font-weight: 600;
     }
     .stButton > button {
         background-color: #238636;
@@ -64,10 +127,12 @@ DARK_CSS = """
     }
     [data-baseweb="select"] > div {
         background-color: #161b22;
-        color: #f0f6fc;
+        color: #c9d1d9;
+        font-weight: 500;
     }
-    .stCaption, .stMetric label {
-        color: #8b949e !important;
+    .stCaption {
+        color: #6e7681 !important;
+        font-weight: 500;
     }
 </style>
 """
@@ -81,6 +146,38 @@ def _minmax_normalize(series: pd.Series) -> pd.Series:
     if hi == lo:
         return pd.Series(0.5, index=series.index)
     return ((series - lo) / (hi - lo)).fillna(0.0)
+
+
+def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config.Column]:
+    configs: dict[str, st.column_config.Column] = {}
+    for col in columns:
+        meta = COLUMN_HELP.get(col)
+        if not meta:
+            continue
+        label, help_text = meta
+        if col in ("Team", "Conference"):
+            configs[col] = st.column_config.TextColumn(label, help=help_text)
+        elif col == "Rank":
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
+        elif col in ("PF", "PA", "GP"):
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
+        elif col in ("Win_Pct", "SOS", "Opp_Win_Pct", "Opp_Opp_Win_Pct", "Net"):
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.4f")
+        else:
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.3f")
+    return configs
+
+
+def _add_pace(df: pd.DataFrame) -> pd.DataFrame:
+    """Pace = average of PF/GP and PA/GP (points per game for and against)."""
+    out = df.copy()
+    if not {"PF", "PA", "GP"}.issubset(out.columns):
+        return out
+    gp = pd.to_numeric(out["GP"], errors="coerce")
+    pf = pd.to_numeric(out["PF"], errors="coerce")
+    pa = pd.to_numeric(out["PA"], errors="coerce")
+    out["Pace"] = ((pf + pa) / (2 * gp)).where(gp.gt(0)).round(1)
+    return out
 
 
 def _add_net_rating(df: pd.DataFrame) -> pd.DataFrame:
@@ -126,7 +223,7 @@ def load_cached_data() -> tuple[pd.DataFrame | None, str | None]:
     teams = payload.get("teams")
     if not teams:
         return None, payload.get("last_updated")
-    df = pd.DataFrame(teams)
+    df = _add_pace(pd.DataFrame(teams))
     return _rank_by_net(df), payload.get("last_updated")
 
 
@@ -186,7 +283,7 @@ def main() -> None:
 
     st.title("NJ High School Basketball — Average Win Margin")
     st.caption(
-        "Rankings use Net = 0.4×norm(Win%) + 0.4×norm(SOS) + 0.2×norm(Avg Margin), "
+        "Rankings use Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin), "
         "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
         "SOS = (2 × opponents’ avg win% + opponents’ opponents’ avg win%) / 3. "
         "Full refresh can take hours. If the run times out, standings are still saved first; "
@@ -277,6 +374,7 @@ def main() -> None:
             "Win_Pct",
             "PF",
             "PA",
+            "Pace",
             "Avg_Margin",
             "SOS",
             "Opp_Win_Pct",
@@ -286,10 +384,12 @@ def main() -> None:
     ]
     if view.empty and selected != ALL_CONFERENCES:
         st.warning(f"No teams found for conference: {selected}")
+    table = view[display_cols] if not view.empty else view
     st.dataframe(
-        view[display_cols] if not view.empty else view,
+        table,
         use_container_width=True,
         hide_index=True,
+        column_config=_leaderboard_column_config(display_cols),
     )
 
 
