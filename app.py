@@ -18,6 +18,16 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 SCRAPER = SCRIPT_DIR / "scraper.py"
 DEFAULT_SEASON = "2025-2026"
+ALL_CONFERENCES = "All conferences"
+NET_WEIGHT_WIN = 0.4
+NET_WEIGHT_SOS = 0.4
+NET_WEIGHT_MARGIN = 0.2
+NET_COMPONENTS = ("Win_Pct", "SOS", "Avg_Margin")
+NET_WEIGHTS = {
+    "Win_Pct": NET_WEIGHT_WIN,
+    "SOS": NET_WEIGHT_SOS,
+    "Avg_Margin": NET_WEIGHT_MARGIN,
+}
 # Full statewide run: conferences + one schedule page per team for SOS (often 1–3+ hours).
 SCRAPER_TIMEOUT_SEC = int(os.environ.get("STREAMLIT_SCRAPER_TIMEOUT_SEC", "10800"))
 
@@ -63,6 +73,39 @@ DARK_CSS = """
 """
 
 
+def _minmax_normalize(series: pd.Series) -> pd.Series:
+    valid = series.dropna()
+    if valid.empty:
+        return pd.Series(0.0, index=series.index)
+    lo, hi = valid.min(), valid.max()
+    if hi == lo:
+        return pd.Series(0.5, index=series.index)
+    return ((series - lo) / (hi - lo)).fillna(0.0)
+
+
+def _add_net_rating(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    net = pd.Series(0.0, index=out.index)
+    for col in NET_COMPONENTS:
+        if col not in out.columns:
+            continue
+        normed = _minmax_normalize(pd.to_numeric(out[col], errors="coerce"))
+        net = net + normed * NET_WEIGHTS[col]
+    out["Net"] = net.round(4)
+    return out
+
+
+def _rank_by_net(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = _add_net_rating(df)
+    out = out.sort_values("Net", ascending=False, na_position="last").reset_index(drop=True)
+    if "Rank" in out.columns:
+        out = out.drop(columns=["Rank"])
+    out.insert(0, "Rank", range(1, len(out) + 1))
+    return out
+
+
 def _format_timestamp(ts: str | None) -> str:
     if not ts:
         return "Unknown"
@@ -84,10 +127,16 @@ def load_cached_data() -> tuple[pd.DataFrame | None, str | None]:
     if not teams:
         return None, payload.get("last_updated")
     df = pd.DataFrame(teams)
-    if "Avg_Margin" in df.columns:
-        df = df.sort_values("Avg_Margin", ascending=False).reset_index(drop=True)
-        df.insert(0, "Rank", range(1, len(df) + 1))
-    return df, payload.get("last_updated")
+    return _rank_by_net(df), payload.get("last_updated")
+
+
+def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
+    if not conference or conference == ALL_CONFERENCES:
+        return df
+    view = df[df["Conference"] == conference].copy()
+    if view.empty:
+        return view
+    return _rank_by_net(view)
 
 
 def run_scraper(
@@ -137,8 +186,8 @@ def main() -> None:
 
     st.title("NJ High School Basketball — Average Win Margin")
     st.caption(
-        "Statewide rankings across listed NJ.com conferences (PF − PA, per game). "
-        "Strength of schedule uses each team’s NJ.com schedule: "
+        "Rankings use Net = 0.4×norm(Win%) + 0.4×norm(SOS) + 0.2×norm(Avg Margin), "
+        "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
         "SOS = (2 × opponents’ avg win% + opponents’ opponents’ avg win%) / 3. "
         "Full refresh can take hours. If the run times out, standings are still saved first; "
         "use sidebar “Resume SOS only” to finish schedules without re-scraping standings."
@@ -202,12 +251,26 @@ def main() -> None:
         st.info("No data found. Please run the scraper.")
         return
 
-    st.metric("Teams loaded", len(df))
+    if "Conference" in df.columns:
+        conferences = sorted(
+            c for c in df["Conference"].dropna().astype(str).unique() if c.strip()
+        )
+    else:
+        conferences = []
+    selected = st.selectbox(
+        "Conference",
+        options=[ALL_CONFERENCES] + conferences,
+        index=0,
+    )
+
+    view = _filter_and_rank(df, selected)
+    st.metric("Teams loaded", len(view))
 
     display_cols = [
         c
         for c in [
             "Rank",
+            "Net",
             "Team",
             "Conference",
             "GP",
@@ -219,19 +282,15 @@ def main() -> None:
             "Opp_Win_Pct",
             "Opp_Opp_Win_Pct",
         ]
-        if c in df.columns
+        if c in view.columns
     ]
+    if view.empty and selected != ALL_CONFERENCES:
+        st.warning(f"No teams found for conference: {selected}")
     st.dataframe(
-        df[display_cols],
+        view[display_cols] if not view.empty else view,
         use_container_width=True,
         hide_index=True,
     )
-
-    top = df.head(10)
-    if not top.empty and "Team" in top.columns and "Avg_Margin" in top.columns:
-        st.subheader("Top 10 — Average Win Margin")
-        chart_df = top.set_index("Team")[["Avg_Margin"]].sort_values("Avg_Margin", ascending=True)
-        st.bar_chart(chart_df, horizontal=True, color="#58a6ff")
 
 
 if __name__ == "__main__":
