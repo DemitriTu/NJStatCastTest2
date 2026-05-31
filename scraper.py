@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from playwright.sync_api import Playwright, Page, sync_playwright
 
 WL_RE = re.compile(r"^(\d+)\s*-\s*(\d+)$")
+SCHEDULE_RESULT_RE = re.compile(r"^([WL])\s+(\d+)\s*-\s*(\d+)$", re.I)
 SCHOOL_PATH_RE = re.compile(r"/school/([^/]+)/boysbasketball", re.I)
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_PATH = SCRIPT_DIR / "data_cache.json"
@@ -266,8 +267,40 @@ def _scrape_standings_page(page: Page, url: str, timeout_ms: int) -> list[dict]:
     return _dedupe_within_page(all_rows)
 
 
-def scrape_schedule_opponent_names(page: Page, season_id: str, school_slug: str, timeout_ms: int) -> list[str]:
-    """Opponent display names from the team season schedule table."""
+def _opponent_name_from_schedule_row(row) -> str:
+    link = row.locator("a[href^='/game/']").first
+    if link.count() == 0:
+        return ""
+    name_el = link.locator("span.ml-1")
+    if name_el.count() > 0:
+        return name_el.inner_text().strip()
+    img = link.locator("img")
+    if img.count() > 0:
+        return (img.get_attribute("alt") or "").strip()
+    return ""
+
+
+def _parse_schedule_game_row(row) -> dict | None:
+    """Parse one schedule row; returns game dict or None if opponent missing."""
+    opponent = _opponent_name_from_schedule_row(row)
+    if not opponent:
+        return None
+    game: dict = {"Opponent": opponent}
+    tds = row.locator("td")
+    if tds.count() >= 3:
+        result_text = tds.nth(2).inner_text().strip()
+        m = SCHEDULE_RESULT_RE.match(result_text)
+        if m:
+            pf, pa = int(m.group(2)), int(m.group(3))
+            game["Won"] = m.group(1).upper() == "W"
+            game["PF"] = pf
+            game["PA"] = pa
+            game["Margin"] = pf - pa
+    return game
+
+
+def scrape_schedule_games(page: Page, season_id: str, school_slug: str, timeout_ms: int) -> list[dict]:
+    """Completed and scheduled games from the team season schedule table."""
     url = team_season_url(season_id, school_slug)
     page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
     try:
@@ -281,26 +314,32 @@ def scrape_schedule_opponent_names(page: Page, season_id: str, school_slug: str,
         pass
     rows = page.locator("tr:has(a[href*='/game/'])")
     k = rows.count()
-    seen: set[str] = set()
-    names: list[str] = []
+    games: list[dict] = []
+    seen: set[tuple[str, int, int]] = set()
     for i in range(k):
         row = rows.nth(i)
-        link = row.locator("a[href^='/game/']").first
-        if link.count() == 0:
+        game = _parse_schedule_game_row(row)
+        if not game:
             continue
-        name_el = link.locator("span.ml-1")
-        if name_el.count() > 0:
-            text = name_el.inner_text().strip()
-        else:
-            img = link.locator("img")
-            text = (img.get_attribute("alt") or "").strip() if img.count() > 0 else ""
-        if not text:
-            continue
-        key = _norm_team_name(text)
+        if "PF" in game and "PA" in game:
+            key = (_norm_team_name(game["Opponent"]), int(game["PF"]), int(game["PA"]))
+            if key in seen:
+                continue
+            seen.add(key)
+        games.append(game)
+    return games
+
+
+def scrape_schedule_opponent_names(page: Page, season_id: str, school_slug: str, timeout_ms: int) -> list[str]:
+    """Opponent display names from the team season schedule table."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for game in scrape_schedule_games(page, season_id, school_slug, timeout_ms):
+        key = _norm_team_name(game["Opponent"])
         if key in seen:
             continue
         seen.add(key)
-        names.append(text)
+        names.append(game["Opponent"])
     return names
 
 
@@ -319,6 +358,33 @@ def _resolve_opponent_to_slug(opponent_name: str, slug_by_norm: dict[str, str], 
     if close:
         return slug_by_norm.get(close[0])
     return None
+
+
+def _resolve_games_to_slugs(
+    games: list[dict],
+    self_slug: str,
+    slug_by_norm: dict[str, str],
+    norm_list: list[str],
+) -> list[dict]:
+    resolved: list[dict] = []
+    for game in games:
+        copy = dict(game)
+        opp_slug = _resolve_opponent_to_slug(str(game.get("Opponent", "")), slug_by_norm, norm_list)
+        copy["Opponent_Slug"] = opp_slug
+        resolved.append(copy)
+    return resolved
+
+
+def _opponent_slugs_from_games(games: list[dict], self_slug: str) -> list[str]:
+    slugs: list[str] = []
+    seen: set[str] = set()
+    for game in games:
+        opp = (game.get("Opponent_Slug") or "").strip()
+        if not opp or opp == self_slug or opp in seen:
+            continue
+        seen.add(opp)
+        slugs.append(opp)
+    return slugs
 
 
 def _resolve_names_to_slugs(
@@ -405,8 +471,8 @@ def _schedule_worker(
     timeout_ms: int,
     slug_by_norm: dict[str, str],
     norm_list: list[str],
-) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = {}
+) -> dict[str, list[dict]]:
+    out: dict[str, list[dict]] = {}
     if not slugs:
         return out
     with sync_playwright() as p:
@@ -430,8 +496,8 @@ def _schedule_worker(
                         file=sys.stderr,
                     )
                 try:
-                    names = scrape_schedule_opponent_names(page, season_id, slug, timeout_ms)
-                    out[slug] = _resolve_names_to_slugs(names, slug, slug_by_norm, norm_list)
+                    games = scrape_schedule_games(page, season_id, slug, timeout_ms)
+                    out[slug] = _resolve_games_to_slugs(games, slug, slug_by_norm, norm_list)
                 except Exception as e:
                     print(f"scraper: schedule failed for {slug!r}: {e}", file=sys.stderr)
                     out[slug] = []
@@ -441,12 +507,12 @@ def _schedule_worker(
     return out
 
 
-def scrape_opponents_map(
+def scrape_games_map(
     season_id: str,
     teams: list[dict],
     timeout_ms: int,
     parallel_workers: int = 4,
-) -> dict[str, list[str]]:
+) -> dict[str, list[dict]]:
     slug_by_norm, norm_list = _build_slug_lookup(teams)
     slugs = [(t.get("School_Slug") or "").strip() for t in teams if (t.get("School_Slug") or "").strip()]
     if not slugs:
@@ -460,7 +526,7 @@ def scrape_opponents_map(
     for i, s in enumerate(slugs):
         chunks[i % workers].append(s)
 
-    merged: dict[str, list[str]] = {}
+    merged: dict[str, list[dict]] = {}
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futs = []
         for wid, chunk in enumerate(chunks):
@@ -482,18 +548,43 @@ def scrape_opponents_map(
     return merged
 
 
+def scrape_opponents_map(
+    season_id: str,
+    teams: list[dict],
+    timeout_ms: int,
+    parallel_workers: int = 4,
+) -> dict[str, list[str]]:
+    games_by_slug = scrape_games_map(season_id, teams, timeout_ms, parallel_workers=parallel_workers)
+    return {
+        slug: _opponent_slugs_from_games(games, slug)
+        for slug, games in games_by_slug.items()
+    }
+
+
 def attach_schedule_and_sos(
     season_id: str,
     teams: list[dict],
     timeout_ms: int = 60000,
     parallel_workers: int = 4,
 ) -> None:
-    opponents_by_slug = scrape_opponents_map(
+    games_by_slug = scrape_games_map(
         season_id,
         teams,
         timeout_ms,
         parallel_workers=parallel_workers,
     )
+    opponents_by_slug = {
+        slug: _opponent_slugs_from_games(games, slug) for slug, games in games_by_slug.items()
+    }
+    slug_to_team = {
+        (t.get("School_Slug") or "").strip(): t for t in teams if (t.get("School_Slug") or "").strip()
+    }
+    for slug, games in games_by_slug.items():
+        team = slug_to_team.get(slug)
+        if team is not None:
+            team["Games"] = games
+    for t in teams:
+        t.setdefault("Games", [])
     compute_sos_for_teams(teams, opponents_by_slug)
 
 
@@ -563,11 +654,12 @@ def save_teams(
     }
     DATA_CACHE_PATH.write_text(json.dumps(cache_payload, indent=2), encoding="utf-8")
     if ranked:
-        fieldnames = list(ranked[0].keys())
+        csv_rows = [{k: v for k, v in t.items() if k != "Games"} for t in ranked]
+        fieldnames = list(csv_rows[0].keys())
         with csv_path.open("w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=fieldnames)
             w.writeheader()
-            w.writerows(ranked)
+            w.writerows(csv_rows)
 
 
 def main() -> int:
@@ -666,6 +758,7 @@ def main() -> int:
             t.setdefault("Opp_Win_Pct", None)
             t.setdefault("Opp_Opp_Win_Pct", None)
             t.setdefault("SOS", None)
+            t.setdefault("Games", [])
         save_teams(teams, json_path=args.json_out, csv_path=args.csv_out)
         print(f"Saved {len(teams)} teams to {args.json_out} and {args.csv_out}")
         return 0
@@ -674,6 +767,7 @@ def main() -> int:
         t.setdefault("Opp_Win_Pct", None)
         t.setdefault("Opp_Opp_Win_Pct", None)
         t.setdefault("SOS", None)
+        t.setdefault("Games", [])
     save_teams(teams, json_path=args.json_out, csv_path=args.csv_out)
     print(
         "Checkpoint: standings saved (SOS not computed yet). "

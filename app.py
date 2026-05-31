@@ -41,6 +41,11 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
     ),
     "Team": ("Team", "School name from NJ.com standings."),
     "Conference": ("Conference", "NJ.com conference assignment for this season."),
+    "Conf_Strength": (
+        "Conf Strength",
+        "Average Net of all teams in this conference (statewide). "
+        "Higher means a stronger league by the composite rating.",
+    ),
     "GP": ("GP", "Games played (wins + losses)."),
     "Win_Pct": ("Win%", "Season winning percentage (wins ÷ games played)."),
     "PF": ("PF", "Total points scored this season."),
@@ -161,7 +166,7 @@ def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
         elif col in ("PF", "PA", "GP"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
-        elif col in ("Win_Pct", "SOS", "Opp_Win_Pct", "Opp_Opp_Win_Pct", "Net"):
+        elif col in ("Win_Pct", "SOS", "Opp_Win_Pct", "Opp_Opp_Win_Pct", "Net", "Conf_Strength"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.4f")
         else:
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.3f")
@@ -192,15 +197,115 @@ def _add_net_rating(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _build_h2h_winners(df: pd.DataFrame) -> dict[tuple[str, str], str]:
+    """Decisive head-to-head series winner keyed by sorted slug pair."""
+    win_counts: dict[tuple[str, str], dict[str, int]] = {}
+    if "School_Slug" not in df.columns or "Games" not in df.columns:
+        return {}
+
+    for _, row in df.iterrows():
+        slug = str(row.get("School_Slug") or "").strip()
+        games = row.get("Games")
+        if not slug or not isinstance(games, list):
+            continue
+        for game in games:
+            if not isinstance(game, dict):
+                continue
+            opp = str(game.get("Opponent_Slug") or "").strip()
+            won = game.get("Won")
+            if not opp or won is None:
+                continue
+            pair = tuple(sorted((slug, opp)))
+            bucket = win_counts.setdefault(pair, {})
+            winner = slug if won else opp
+            bucket[winner] = bucket.get(winner, 0) + 1
+
+    winners: dict[tuple[str, str], str] = {}
+    for pair, counts in win_counts.items():
+        a, b = pair
+        ca, cb = counts.get(a, 0), counts.get(b, 0)
+        if ca > cb:
+            winners[pair] = a
+        elif cb > ca:
+            winners[pair] = b
+    return winners
+
+
+def _h2h_winner(slug_a: str, slug_b: str, h2h: dict[tuple[str, str], str]) -> str | None:
+    if not slug_a or not slug_b:
+        return None
+    return h2h.get(tuple(sorted((slug_a, slug_b))))
+
+
+def _apply_h2h_adjacent_swaps(df: pd.DataFrame, h2h: dict[tuple[str, str], str]) -> pd.DataFrame:
+    if df.empty or not h2h:
+        return df
+    rows = df.to_dict("records")
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(rows) - 1):
+            slug_a = str(rows[i].get("School_Slug") or "").strip()
+            slug_b = str(rows[i + 1].get("School_Slug") or "").strip()
+            if _h2h_winner(slug_a, slug_b, h2h) == slug_b:
+                rows[i], rows[i + 1] = rows[i + 1], rows[i]
+                changed = True
+    return pd.DataFrame(rows)
+
+
 def _rank_by_net(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
     out = _add_net_rating(df)
     out = out.sort_values("Net", ascending=False, na_position="last").reset_index(drop=True)
+    h2h = _build_h2h_winners(out)
+    out = _apply_h2h_adjacent_swaps(out, h2h).reset_index(drop=True)
     if "Rank" in out.columns:
         out = out.drop(columns=["Rank"])
     out.insert(0, "Rank", range(1, len(out) + 1))
     return out
+
+
+def _add_conference_strength(df: pd.DataFrame) -> pd.DataFrame:
+    """Statewide mean Net by conference, mapped to each team row."""
+    out = df.copy()
+    if "Conference" not in out.columns or "Net" not in out.columns:
+        return out
+    out["Conf_Strength"] = (
+        out.groupby("Conference", dropna=False)["Net"].transform("mean").round(4)
+    )
+    return out
+
+
+def _conference_strength_chart_df(df: pd.DataFrame) -> pd.DataFrame | None:
+    """One row per conference, highest Conf Strength first (top of horizontal chart)."""
+    if "Conference" not in df.columns or "Conf_Strength" not in df.columns:
+        return None
+    chart = (
+        df.dropna(subset=["Conference", "Conf_Strength"])
+        .groupby("Conference", as_index=False)["Conf_Strength"]
+        .first()
+        .sort_values("Conf_Strength", ascending=False)
+    )
+    if chart.empty:
+        return None
+    order = chart["Conference"].tolist()
+    chart["Conference"] = pd.Categorical(chart["Conference"], categories=order, ordered=True)
+    return chart[["Conference", "Conf_Strength"]].reset_index(drop=True)
+
+
+def _render_conference_strength_chart(chart: pd.DataFrame) -> None:
+    chart_args = {
+        "data": chart,
+        "x": "Conference",
+        "y": "Conf_Strength",
+        "horizontal": True,
+        "color": "#58a6ff",
+    }
+    try:
+        st.bar_chart(**chart_args, sort="-Conf_Strength")
+    except TypeError:
+        st.bar_chart(**chart_args, sort=False)
 
 
 def _format_timestamp(ts: str | None) -> str:
@@ -224,7 +329,9 @@ def load_cached_data() -> tuple[pd.DataFrame | None, str | None]:
     if not teams:
         return None, payload.get("last_updated")
     df = _add_pace(pd.DataFrame(teams))
-    return _rank_by_net(df), payload.get("last_updated")
+    df = _rank_by_net(df)
+    df = _add_conference_strength(df)
+    return df, payload.get("last_updated")
 
 
 def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
@@ -285,6 +392,7 @@ def main() -> None:
     st.caption(
         "Rankings use Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin), "
         "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
+        "Adjacent teams may swap when the lower-Net team won the head-to-head series. "
         "SOS = (2 × opponents’ avg win% + opponents’ opponents’ avg win%) / 3. "
         "Full refresh can take hours. If the run times out, standings are still saved first; "
         "use sidebar “Resume SOS only” to finish schedules without re-scraping standings."
@@ -370,6 +478,7 @@ def main() -> None:
             "Net",
             "Team",
             "Conference",
+            "Conf_Strength",
             "GP",
             "Win_Pct",
             "PF",
@@ -391,6 +500,15 @@ def main() -> None:
         hide_index=True,
         column_config=_leaderboard_column_config(display_cols),
     )
+
+    conf_chart = _conference_strength_chart_df(df)
+    if conf_chart is not None:
+        st.subheader("Conference Strength Rankings")
+        st.caption(
+            "Average statewide Net by conference (same value as the Conf Strength column). "
+            "Ranked highest to lowest, top to bottom."
+        )
+        _render_conference_strength_chart(conf_chart)
 
 
 if __name__ == "__main__":
