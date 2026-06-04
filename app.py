@@ -43,8 +43,8 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
     "Conference": ("Conference", "NJ.com conference assignment for this season."),
     "Conf_Strength": (
         "Conf Strength",
-        "Average Net of all teams in this conference (statewide). "
-        "Higher means a stronger league by the composite rating.",
+        "Average win% of all teams in this conference (statewide). "
+        "Higher means a stronger league by win record.",
     ),
     "GP": ("GP", "Games played vs in-state opponents (from schedule when available)."),
     "Win_Pct": (
@@ -400,12 +400,12 @@ def _rank_by_net(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _add_conference_strength(df: pd.DataFrame) -> pd.DataFrame:
-    """Statewide mean Net by conference, mapped to each team row."""
+    """Statewide mean Win_Pct by conference, mapped to each team row."""
     out = df.copy()
-    if "Conference" not in out.columns or "Net" not in out.columns:
+    if "Conference" not in out.columns or "Win_Pct" not in out.columns:
         return out
     out["Conf_Strength"] = (
-        out.groupby("Conference", dropna=False)["Net"].transform("mean").round(4)
+        out.groupby("Conference", dropna=False)["Win_Pct"].transform("mean").round(4)
     )
     return out
 
@@ -622,8 +622,6 @@ def main() -> None:
             "Pace",
             "Avg_Margin",
             "SOS",
-            "Opp_Win_Pct",
-            "Opp_Opp_Win_Pct",
         ]
         if c in view.columns
     ]
@@ -641,7 +639,7 @@ def main() -> None:
     if conf_chart is not None:
         st.subheader("Conference Strength Rankings")
         st.caption(
-            "Average statewide Net by conference (same value as the Conf Strength column). "
+            "Average statewide win% by conference (same value as the Conf Strength column). "
             "Ranked highest to lowest, top to bottom."
         )
         _render_conference_strength_chart(conf_chart)
