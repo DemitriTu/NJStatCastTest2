@@ -371,6 +371,8 @@ def _resolve_games_to_slugs(
         copy = dict(game)
         opp_slug = _resolve_opponent_to_slug(str(game.get("Opponent", "")), slug_by_norm, norm_list)
         copy["Opponent_Slug"] = opp_slug
+        if not opp_slug:
+            copy["National"] = True
         resolved.append(copy)
     return resolved
 

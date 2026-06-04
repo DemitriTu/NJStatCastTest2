@@ -46,29 +46,35 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
         "Average Net of all teams in this conference (statewide). "
         "Higher means a stronger league by the composite rating.",
     ),
-    "GP": ("GP", "Games played (wins + losses)."),
-    "Win_Pct": ("Win%", "Season winning percentage (wins ÷ games played)."),
-    "PF": ("PF", "Total points scored this season."),
-    "PA": ("PA", "Total points allowed this season."),
+    "GP": ("GP", "Games played vs in-state opponents (from schedule when available)."),
+    "Win_Pct": (
+        "Win%",
+        "Winning percentage vs in-state opponents only (Opponent_Slug present). "
+        "Out-of-state/national games excluded when schedule data exists.",
+    ),
+    "PF": ("PF", "Total points scored vs in-state opponents (when schedule data exists)."),
+    "PA": ("PA", "Total points allowed vs in-state opponents (when schedule data exists)."),
     "Pace": (
         "Pace",
         "Average of points for and points against per game: ((PF/GP) + (PA/GP)) ÷ 2.",
     ),
     "Avg_Margin": (
         "Avg Margin",
-        "Average scoring margin per game: (PF − PA) ÷ GP.",
+        "Average scoring margin vs in-state opponents: (PF − PA) ÷ GP. "
+        "National/out-of-state games excluded when schedule data exists.",
     ),
     "SOS": (
         "SOS",
-        "Strength of schedule: (2 × opponents' avg win% + opponents' opponents' avg win%) ÷ 3.",
+        "Strength of schedule vs in-state opponents: "
+        "(2 × opponents' avg win% + opponents' opponents' avg win%) ÷ 3.",
     ),
     "Opp_Win_Pct": (
         "Opp Win%",
-        "Average season win% of opponents on this team's schedule.",
+        "Average win% of in-state opponents on this team's schedule.",
     ),
     "Opp_Opp_Win_Pct": (
         "Opp Opp Win%",
-        "Average win% of opponents' opponents (second-order schedule strength).",
+        "Average win% of in-state opponents' opponents.",
     ),
 }
 
@@ -171,6 +177,133 @@ def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config
         else:
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.3f")
     return configs
+
+
+def _is_nj_game(game: object) -> bool:
+    if not isinstance(game, dict):
+        return False
+    return bool(str(game.get("Opponent_Slug") or "").strip())
+
+
+def _nj_record_from_games(games: list) -> dict[str, int | float] | None:
+    completed = [
+        g
+        for g in games
+        if isinstance(g, dict) and _is_nj_game(g) and g.get("Won") is not None
+    ]
+    if not completed:
+        return None
+    wins = sum(1 for g in completed if g["Won"])
+    gp = len(completed)
+    losses = gp - wins
+    pf = sum(int(g["PF"]) for g in completed)
+    pa = sum(int(g["PA"]) for g in completed)
+    return {
+        "Wins": wins,
+        "Losses": losses,
+        "GP": gp,
+        "PF": pf,
+        "PA": pa,
+        "Win_Pct": round(wins / gp, 4) if gp else 0.0,
+        "Avg_Margin": round((pf - pa) / gp, 3) if gp else 0.0,
+    }
+
+
+def _nj_opponent_slugs(games: list, self_slug: str) -> list[str]:
+    slugs: list[str] = []
+    seen: set[str] = set()
+    for game in games:
+        if not isinstance(game, dict) or not _is_nj_game(game):
+            continue
+        opp = str(game.get("Opponent_Slug") or "").strip()
+        if not opp or opp == self_slug or opp in seen:
+            continue
+        seen.add(opp)
+        slugs.append(opp)
+    return slugs
+
+
+def _avg_win_pct(slugs: list[str], win_pct: dict[str, float]) -> float | None:
+    vals = [win_pct[s] for s in slugs if s in win_pct]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+def _recompute_sos_on_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "School_Slug" not in out.columns:
+        return out
+
+    win_pct: dict[str, float] = {}
+    for _, row in out.iterrows():
+        slug = str(row.get("School_Slug") or "").strip()
+        if not slug:
+            continue
+        wp = row.get("Win_Pct")
+        if wp is not None and not pd.isna(wp):
+            win_pct[slug] = float(wp)
+
+    opponents_by_slug: dict[str, list[str]] = {}
+    for _, row in out.iterrows():
+        slug = str(row.get("School_Slug") or "").strip()
+        if not slug:
+            continue
+        games = row.get("Games")
+        opponents_by_slug[slug] = _nj_opponent_slugs(games, slug) if isinstance(games, list) else []
+
+    opp_win: list[float | None] = []
+    opp_opp_win: list[float | None] = []
+    sos_vals: list[float | None] = []
+    for _, row in out.iterrows():
+        slug = str(row.get("School_Slug") or "").strip()
+        if not slug:
+            opp_win.append(None)
+            opp_opp_win.append(None)
+            sos_vals.append(None)
+            continue
+        opps = opponents_by_slug.get(slug, [])
+        ow = _avg_win_pct(opps, win_pct)
+        oow_parts: list[float] = []
+        for opp in opps:
+            sub = _avg_win_pct(opponents_by_slug.get(opp, []), win_pct)
+            if sub is not None:
+                oow_parts.append(sub)
+        oow = sum(oow_parts) / len(oow_parts) if oow_parts else None
+        opp_win.append(round(ow, 4) if ow is not None else None)
+        opp_opp_win.append(round(oow, 4) if oow is not None else None)
+        if ow is not None and oow is not None:
+            sos_vals.append(round((2 * ow + oow) / 3, 4))
+        else:
+            sos_vals.append(None)
+
+    out["Opp_Win_Pct"] = opp_win
+    out["Opp_Opp_Win_Pct"] = opp_opp_win
+    out["SOS"] = sos_vals
+    return out
+
+
+def _apply_nj_only_stats(df: pd.DataFrame) -> pd.DataFrame:
+    """Replace season totals with stats from in-state games only (Opponent_Slug set)."""
+    out = df.copy()
+    if "Games" not in out.columns:
+        return out
+
+    any_updated = False
+    for idx, row in out.iterrows():
+        games = row.get("Games")
+        if not isinstance(games, list) or not games:
+            continue
+        record = _nj_record_from_games(games)
+        if record is None:
+            continue
+        for key, val in record.items():
+            out.at[idx, key] = val
+        any_updated = True
+
+    if any_updated:
+        out = _recompute_sos_on_dataframe(out)
+    return out
 
 
 def _add_pace(df: pd.DataFrame) -> pd.DataFrame:
@@ -328,7 +461,9 @@ def load_cached_data() -> tuple[pd.DataFrame | None, str | None]:
     teams = payload.get("teams")
     if not teams:
         return None, payload.get("last_updated")
-    df = _add_pace(pd.DataFrame(teams))
+    df = pd.DataFrame(teams)
+    df = _apply_nj_only_stats(df)
+    df = _add_pace(df)
     df = _rank_by_net(df)
     df = _add_conference_strength(df)
     return df, payload.get("last_updated")
@@ -392,8 +527,9 @@ def main() -> None:
     st.caption(
         "Rankings use Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin), "
         "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
+        "Win%, margin, and SOS use in-state opponents only (games with Opponent_Slug); "
+        "out-of-state/national opponents are excluded when schedule data exists. "
         "Adjacent teams may swap when the lower-Net team won the head-to-head series. "
-        "SOS = (2 × opponents’ avg win% + opponents’ opponents’ avg win%) / 3. "
         "Full refresh can take hours. If the run times out, standings are still saved first; "
         "use sidebar “Resume SOS only” to finish schedules without re-scraping standings."
     )
