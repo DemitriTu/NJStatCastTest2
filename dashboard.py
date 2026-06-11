@@ -76,75 +76,328 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
     ),
 }
 
-DARK_CSS = """
+APP_CSS = """
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+        --nj-bg: #09090b;
+        --nj-surface: #18181b;
+        --nj-surface-raised: #1f1f23;
+        --nj-border: #27272a;
+        --nj-border-subtle: #3f3f46;
+        --nj-text: #fafafa;
+        --nj-text-muted: #a1a1aa;
+        --nj-text-faint: #71717a;
+        --nj-accent: #2563eb;
+        --nj-accent-hover: #1d4ed8;
+        --nj-radius: 12px;
+        --nj-radius-sm: 8px;
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
     .stApp {
-        background-color: #0d1117;
-        color: #c9d1d9;
-        font-weight: 500;
+        background: linear-gradient(180deg, #09090b 0%, #0c0c0f 100%);
+        color: var(--nj-text);
     }
-    .stApp header[data-testid="stHeader"] {
-        background-color: #010409;
-        border-bottom: 1px solid #30363d;
+
+    .block-container {
+        max-width: 1200px;
+        padding-top: 2.5rem;
+        padding-bottom: 3rem;
     }
-    [data-testid="stMarkdownContainer"] p {
-        color: #b1bac4 !important;
-        font-weight: 500;
+
+    header[data-testid="stHeader"] {
+        background: rgba(9, 9, 11, 0.85);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--nj-border);
     }
+
+    [data-testid="stSidebar"] {
+        background: var(--nj-surface);
+        border-right: 1px solid var(--nj-border);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stCaption {
+        color: var(--nj-text-muted) !important;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: var(--nj-text) !important;
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    #MainMenu, footer, header[data-testid="stHeader"] nav {
+        visibility: hidden;
+    }
+
     [data-testid="stMarkdownContainer"] h1,
     [data-testid="stMarkdownContainer"] h2,
     [data-testid="stMarkdownContainer"] h3 {
-        color: #e6edf3 !important;
-        font-weight: 600;
+        color: var(--nj-text) !important;
+        letter-spacing: -0.02em;
     }
-    div[data-testid="stVerticalBlock"] > div {
-        color: #c9d1d9;
+
+    .stCaption, [data-testid="stMarkdownContainer"] p {
+        color: var(--nj-text-muted) !important;
+        line-height: 1.6;
     }
-    [data-testid="stDataFrame"] {
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        color: #0d1117;
-        font-weight: 500;
+
+    .stButton > button[kind="primary"],
+    .stButton > button[data-testid="stBaseButton-primary"] {
+        background: var(--nj-accent) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: var(--nj-radius-sm) !important;
+        font-weight: 600 !important;
+        padding: 0.625rem 1.25rem !important;
+        transition: background 0.15s ease, transform 0.15s ease;
     }
-    [data-testid="stDataFrame"] div[role="gridcell"],
-    [data-testid="stDataFrame"] div[role="columnheader"],
-    [data-testid="stDataFrame"] span {
-        color: #0d1117 !important;
-        font-weight: 500;
+
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[data-testid="stBaseButton-primary"]:hover {
+        background: var(--nj-accent-hover) !important;
+        border: none !important;
+        color: #fff !important;
     }
-    [data-testid="stDataFrame"] div[role="columnheader"] {
-        font-weight: 600;
-    }
-    [data-testid="stMetric"] label {
-        color: #6e7681 !important;
-        font-weight: 500;
-    }
-    [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #e6edf3 !important;
-        font-weight: 600;
-    }
+
     .stButton > button {
-        background-color: #238636;
-        color: #ffffff;
-        border: none;
+        border-radius: var(--nj-radius-sm) !important;
+        font-weight: 500 !important;
+    }
+
+    [data-testid="stMetric"] {
+        background: var(--nj-surface);
+        border: 1px solid var(--nj-border);
+        border-radius: var(--nj-radius);
+        padding: 1rem 1.25rem;
+    }
+
+    [data-testid="stMetric"] label {
+        color: var(--nj-text-faint) !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    [data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: var(--nj-text) !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em;
+    }
+
+    [data-testid="stDataFrame"] {
+        border: 1px solid var(--nj-border);
+        border-radius: var(--nj-radius);
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+    }
+
+    [data-testid="stDataFrame"] div[role="columnheader"] {
+        background: #f4f4f5 !important;
+        font-weight: 600 !important;
+        font-size: 0.8125rem !important;
+    }
+
+    [data-testid="stDataFrame"] div[role="gridcell"],
+    [data-testid="stDataFrame"] span {
+        font-size: 0.875rem !important;
+    }
+
+    [data-baseweb="select"] > div,
+    [data-testid="stTextInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background: var(--nj-surface-raised) !important;
+        border: 1px solid var(--nj-border) !important;
+        border-radius: var(--nj-radius-sm) !important;
+        color: var(--nj-text) !important;
+    }
+
+    [data-testid="stExpander"] {
+        background: var(--nj-surface);
+        border: 1px solid var(--nj-border);
+        border-radius: var(--nj-radius);
+    }
+
+    hr {
+        border-color: var(--nj-border) !important;
+        margin: 2rem 0 !important;
+    }
+
+    .nj-hero {
+        text-align: center;
+        padding: 3.5rem 1rem 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .nj-eyebrow {
+        display: inline-block;
+        margin: 0 0 1rem;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.75rem;
         font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #93c5fd !important;
+        background: rgba(37, 99, 235, 0.12);
+        border: 1px solid rgba(37, 99, 235, 0.25);
+        border-radius: 999px;
     }
-    .stButton > button:hover {
-        background-color: #2ea043;
-        color: #ffffff;
-        border: none;
+
+    .nj-hero h1 {
+        margin: 0 0 0.75rem;
+        font-size: clamp(2.25rem, 5vw, 3.25rem);
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        color: var(--nj-text) !important;
     }
-    [data-baseweb="select"] > div {
-        background-color: #161b22;
-        color: #c9d1d9;
-        font-weight: 500;
+
+    .nj-hero-sub {
+        max-width: 34rem;
+        margin: 0 auto;
+        font-size: 1.0625rem;
+        color: var(--nj-text-muted) !important;
     }
-    .stCaption {
-        color: #6e7681 !important;
-        font-weight: 500;
+
+    .nj-card {
+        background: var(--nj-surface);
+        border: 1px solid var(--nj-border);
+        border-radius: var(--nj-radius);
+        padding: 1.5rem;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .nj-card:hover {
+        border-color: var(--nj-border-subtle);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .nj-card-label {
+        margin: 0 0 0.35rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--nj-text-faint) !important;
+    }
+
+    .nj-card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--nj-text) !important;
+    }
+
+    .nj-card p {
+        margin: 0;
+        font-size: 0.9375rem;
+        color: var(--nj-text-muted) !important;
+    }
+
+    .nj-page-header {
+        margin-bottom: 1.75rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--nj-border);
+    }
+
+    .nj-page-header h1 {
+        margin: 0.5rem 0 0.5rem;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+    }
+
+    .nj-page-sub {
+        margin: 0;
+        max-width: 42rem;
+        font-size: 1rem;
+        color: var(--nj-text-muted) !important;
+    }
+
+    .nj-section-title {
+        margin: 0 0 0.35rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--nj-text) !important;
+        letter-spacing: -0.01em;
+    }
+
+    .nj-section-desc {
+        margin: 0 0 1rem;
+        font-size: 0.875rem;
+        color: var(--nj-text-faint) !important;
+    }
+
+    .nj-sidebar-meta {
+        margin: 0 0 1rem;
+        padding: 0.75rem 0.875rem;
+        background: var(--nj-surface-raised);
+        border: 1px solid var(--nj-border);
+        border-radius: var(--nj-radius-sm);
+        font-size: 0.8125rem;
+        color: var(--nj-text-muted) !important;
+    }
+
+    .nj-sidebar-meta strong {
+        display: block;
+        margin-bottom: 0.15rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--nj-text-faint);
     }
 </style>
 """
+
+DARK_CSS = APP_CSS
+
+
+def inject_app_styles() -> None:
+    st.markdown(APP_CSS, unsafe_allow_html=True)
+
+
+def render_home_page(basketball_page: str) -> None:
+    st.markdown(
+        """
+        <div class="nj-hero">
+            <p class="nj-eyebrow">New Jersey High School Sports</p>
+            <h1>NJ Stat Cast</h1>
+            <p class="nj-hero-sub">
+                Rankings and analytics built from NJ.com standings and schedules.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    _, center, _ = st.columns([1, 1.4, 1])
+    with center:
+        st.markdown(
+            """
+            <div class="nj-card">
+                <p class="nj-card-label">Season analytics</p>
+                <h3>Basketball</h3>
+                <p>Statewide Net ratings, conference filters, strength of schedule, and league strength.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("Open basketball rankings", type="primary", use_container_width=True):
+            st.switch_page(basketball_page)
 
 
 def _minmax_normalize(series: pd.Series) -> pd.Series:
@@ -431,7 +684,7 @@ def _render_conference_strength_chart(chart: pd.DataFrame) -> None:
         "x": "Conference",
         "y": "Conf_Strength",
         "horizontal": True,
-        "color": "#58a6ff",
+        "color": "#3b82f6",
     }
     try:
         st.bar_chart(**chart_args, sort="-Conf_Strength")
@@ -514,73 +767,90 @@ def run_scraper(
 
 
 def render_basketball_page() -> None:
-    st.title("NJ High School Basketball — Average Win Margin")
-    st.caption(
-        "Rankings use Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin), "
-        "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
-        "Win%, margin, and SOS use in-state opponents only (games with Opponent_Slug); "
-        "out-of-state/national opponents are excluded when schedule data exists. "
-        "Adjacent teams may swap when the lower-Net team won the head-to-head series. "
-        "Full refresh can take hours. If the run times out, standings are still saved first; "
-        "use sidebar “Resume SOS only” to finish schedules without re-scraping standings."
+    st.markdown(
+        """
+        <div class="nj-page-header">
+            <p class="nj-eyebrow">Basketball</p>
+            <h1>Statewide Rankings</h1>
+            <p class="nj-page-sub">
+                Net rating leaderboard with in-state schedule adjustments and head-to-head tiebreakers.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    with st.sidebar:
-        st.subheader("Data source")
-        season = st.text_input(
-            "Season",
-            value=DEFAULT_SEASON,
-            help="Season folder on NJ.com, e.g. 2025-2026.",
+    with st.expander("How rankings are calculated"):
+        st.markdown(
+            "Rankings use **Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin)**, "
+            "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
+            "Win%, margin, and SOS use in-state opponents only; out-of-state games are excluded when "
+            "schedule data exists. Adjacent teams may swap when the lower-Net team won the head-to-head series."
         )
-        single_url = st.text_input(
-            "Single conference URL (optional)",
-            value="",
-            placeholder="Leave empty to scrape all conferences",
-            help="If set, only this page is scraped instead of the full conference list.",
-        )
-        skip_schedule = st.checkbox(
-            "Skip schedule / SOS (faster)",
-            value=False,
-            help="Only scrape standings; leave SOS columns empty.",
-        )
-        sos_only = st.checkbox(
-            "Resume SOS only (from cache)",
-            value=False,
-            help="Load data_cache.json and run schedule + SOS only. Use after a timeout or to refresh SOS without re-scraping standings.",
-        )
-        trigger_scrape = st.button("Trigger Fresh Scrape", type="primary", use_container_width=True)
 
-    if trigger_scrape:
-        if sos_only and skip_schedule:
-            st.error('Uncheck "Skip schedule" or "Resume SOS only" — they cannot be used together.')
-        else:
-            spin = (
-                "Running SOS from cache…"
-                if sos_only
-                else (
-                    "Running scraper (standings only)…"
-                    if skip_schedule
-                    else "Running scraper (standings + schedules for SOS; can take many minutes)…"
-                )
+    with st.sidebar:
+        df_preview, last_updated = load_cached_data()
+        st.markdown(
+            f'<div class="nj-sidebar-meta"><strong>Last updated</strong>{_format_timestamp(last_updated)}</div>',
+            unsafe_allow_html=True,
+        )
+        with st.expander("Refresh data", expanded=False):
+            season = st.text_input(
+                "Season",
+                value=DEFAULT_SEASON,
+                help="Season folder on NJ.com, e.g. 2025-2026.",
             )
-            with st.spinner(spin):
-                ok, msg = run_scraper(
-                    season=season,
-                    single_url=single_url or None,
-                    skip_schedule=skip_schedule,
-                    sos_only=sos_only,
-                )
-            if ok:
-                st.success(msg)
+            single_url = st.text_input(
+                "Single conference URL (optional)",
+                value="",
+                placeholder="Leave empty to scrape all conferences",
+                help="If set, only this page is scraped instead of the full conference list.",
+            )
+            skip_schedule = st.checkbox(
+                "Skip schedule / SOS (faster)",
+                value=False,
+                help="Only scrape standings; leave SOS columns empty.",
+            )
+            sos_only = st.checkbox(
+                "Resume SOS only (from cache)",
+                value=False,
+                help="Load data_cache.json and run schedule + SOS only.",
+            )
+            trigger_scrape = st.button(
+                "Run scraper",
+                type="primary",
+                use_container_width=True,
+            )
+
+        if trigger_scrape:
+            if sos_only and skip_schedule:
+                st.error('Uncheck "Skip schedule" or "Resume SOS only" — they cannot be used together.')
             else:
-                st.error(msg)
+                spin = (
+                    "Running SOS from cache…"
+                    if sos_only
+                    else (
+                        "Running scraper (standings only)…"
+                        if skip_schedule
+                        else "Running scraper (standings + schedules for SOS)…"
+                    )
+                )
+                with st.spinner(spin):
+                    ok, msg = run_scraper(
+                        season=season,
+                        single_url=single_url or None,
+                        skip_schedule=skip_schedule,
+                        sos_only=sos_only,
+                    )
+                if ok:
+                    st.success(msg)
+                    df_preview, last_updated = load_cached_data()
+                else:
+                    st.error(msg)
 
-    df, last_updated = load_cached_data()
-    with st.sidebar:
-        st.caption(f"Last Updated: {_format_timestamp(last_updated)}")
-
+    df = df_preview
     if df is None:
-        st.info("No data found. Please run the scraper.")
+        st.info("No data found. Open **Refresh data** in the sidebar to run the scraper.")
         return
 
     if "Conference" in df.columns:
@@ -589,14 +859,23 @@ def render_basketball_page() -> None:
         )
     else:
         conferences = []
-    selected = st.selectbox(
-        "Conference",
-        options=[ALL_CONFERENCES] + conferences,
-        index=0,
-    )
 
-    view = _filter_and_rank(df, selected)
-    st.metric("Teams loaded", len(view))
+    filter_col, metric_col = st.columns([3, 1])
+    with filter_col:
+        selected = st.selectbox(
+            "Conference",
+            options=[ALL_CONFERENCES] + conferences,
+            index=0,
+        )
+    with metric_col:
+        view = _filter_and_rank(df, selected)
+        st.metric("Teams", len(view))
+
+    st.markdown(
+        '<p class="nj-section-title">Leaderboard</p>'
+        '<p class="nj-section-desc">Sorted by Net within the selected view.</p>',
+        unsafe_allow_html=True,
+    )
 
     display_cols = [
         c
@@ -628,9 +907,10 @@ def render_basketball_page() -> None:
 
     conf_chart = _conference_strength_chart_df(df)
     if conf_chart is not None:
-        st.subheader("Conference Strength Rankings")
-        st.caption(
-            "Average statewide win% by conference (same value as the Conf Strength column). "
-            "Ranked highest to lowest, top to bottom."
+        st.divider()
+        st.markdown(
+            '<p class="nj-section-title">Conference strength</p>'
+            '<p class="nj-section-desc">Average statewide win% by conference.</p>',
+            unsafe_allow_html=True,
         )
         _render_conference_strength_chart(conf_chart)

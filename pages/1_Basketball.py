@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import streamlit as st
 
-from dashboard import DARK_CSS, render_basketball_page
+from dashboard import inject_app_styles, render_basketball_page
 
 st.set_page_config(
-    page_title="NJ Basketball — Avg Win Margin",
+    page_title="Basketball Rankings | NJ Stat Cast",
+    page_icon="🏀",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-st.markdown(DARK_CSS, unsafe_allow_html=True)
+inject_app_styles()
 render_basketball_page()
