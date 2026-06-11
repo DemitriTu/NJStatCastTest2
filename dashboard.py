@@ -15,6 +15,9 @@ import streamlit as st
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 SCRAPER = SCRIPT_DIR / "scraper.py"
+LOGO_PATH = SCRIPT_DIR / "Logo" / "ChatGPT Image Jun 10, 2026, 08_41_55 PM.png"
+LOGO_WORDMARK_PATH = SCRIPT_DIR / "Logo" / "ChatGPT Image Jun 10, 2026, 08_46_24 PM.png"
+PAGE_ICON = str(LOGO_PATH) if LOGO_PATH.is_file() else "📊"
 DEFAULT_SEASON = "2025-2026"
 ALL_CONFERENCES = "All conferences"
 NET_WEIGHT_WIN = 0.3
@@ -359,6 +362,20 @@ APP_CSS = """
         text-transform: uppercase;
         color: var(--nj-text-faint);
     }
+
+    [data-testid="stSidebar"] [data-testid="stImage"] {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 0.75rem;
+    }
+
+    [data-testid="stImage"] img {
+        filter: invert(1);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stImage"] img {
+        max-width: 140px;
+    }
 </style>
 """
 
@@ -369,12 +386,26 @@ def inject_app_styles() -> None:
     st.markdown(APP_CSS, unsafe_allow_html=True)
 
 
+def _render_logo(*, width: int | None = None, use_container_width: bool = False) -> None:
+    if LOGO_PATH.is_file():
+        st.image(str(LOGO_PATH), width=width, use_container_width=use_container_width)
+
+
+def _render_wordmark(*, use_container_width: bool = True) -> None:
+    path = LOGO_WORDMARK_PATH if LOGO_WORDMARK_PATH.is_file() else LOGO_PATH
+    if path.is_file():
+        st.image(str(path), use_container_width=use_container_width)
+
+
 def render_home_page(basketball_page: str) -> None:
+    _, logo_col, _ = st.columns([0.75, 2.5, 0.75])
+    with logo_col:
+        _render_wordmark()
+
     st.markdown(
         """
         <div class="nj-hero">
             <p class="nj-eyebrow">New Jersey High School Sports</p>
-            <h1>NJ Stat Cast</h1>
             <p class="nj-hero-sub">
                 Rankings and analytics built from NJ.com standings and schedules.
             </p>
@@ -767,18 +798,22 @@ def run_scraper(
 
 
 def render_basketball_page() -> None:
-    st.markdown(
-        """
-        <div class="nj-page-header">
-            <p class="nj-eyebrow">Basketball</p>
-            <h1>Statewide Rankings</h1>
-            <p class="nj-page-sub">
-                Net rating leaderboard with in-state schedule adjustments and head-to-head tiebreakers.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    logo_col, header_col = st.columns([1, 5], gap="medium")
+    with logo_col:
+        _render_logo(width=96)
+    with header_col:
+        st.markdown(
+            """
+            <div class="nj-page-header">
+                <p class="nj-eyebrow">Basketball</p>
+                <h1>Statewide Rankings</h1>
+                <p class="nj-page-sub">
+                    Net rating leaderboard with in-state schedule adjustments and head-to-head tiebreakers.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     with st.expander("How rankings are calculated"):
         st.markdown(
@@ -789,6 +824,7 @@ def render_basketball_page() -> None:
         )
 
     with st.sidebar:
+        _render_logo(width=120)
         df_preview, last_updated = load_cached_data()
         st.markdown(
             f'<div class="nj-sidebar-meta"><strong>Last updated</strong>{_format_timestamp(last_updated)}</div>',
