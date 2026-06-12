@@ -27,6 +27,7 @@ pg = st.navigation(
     [
         st.Page(_home, title="Home", default=True),
         st.Page(BASKETBALL_PAGE, title="Basketball"),
-    ]
+    ],
+    position="top",
 )
 pg.run()

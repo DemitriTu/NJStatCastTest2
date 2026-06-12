@@ -120,6 +120,17 @@ APP_CSS = """
         border-bottom: 1px solid var(--nj-border);
     }
 
+    header[data-testid="stHeader"] a {
+        color: var(--nj-text-muted) !important;
+        font-weight: 500;
+        text-decoration: none !important;
+    }
+
+    header[data-testid="stHeader"] a[aria-current="page"] {
+        color: var(--nj-text) !important;
+        font-weight: 600;
+    }
+
     [data-testid="stSidebar"] {
         background: var(--nj-surface);
         border-right: 1px solid var(--nj-border);
@@ -141,8 +152,12 @@ APP_CSS = """
         text-transform: uppercase;
     }
 
-    #MainMenu, footer, header[data-testid="stHeader"] nav {
+    #MainMenu, footer {
         visibility: hidden;
+    }
+
+    [data-testid="stHeader"] [data-testid="stDecoration"] {
+        background: var(--nj-border);
     }
 
     [data-testid="stMarkdownContainer"] h1,
