@@ -15,9 +15,10 @@ import streamlit as st
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 SCRAPER = SCRIPT_DIR / "scraper.py"
-LOGO_PATH = SCRIPT_DIR / "Logo" / "ChatGPT Image Jun 10, 2026, 08_41_55 PM.png"
-LOGO_WORDMARK_PATH = SCRIPT_DIR / "Logo" / "ChatGPT Image Jun 10, 2026, 08_46_24 PM.png"
-PAGE_ICON = str(LOGO_PATH) if LOGO_PATH.is_file() else "📊"
+LOGO_PATH = SCRIPT_DIR / "Logo" / "WhiteNJStatCast_nobackground.png"
+LOGO_WORDMARK_PATH = SCRIPT_DIR / "Logo" / "WhiteNJStatCastWords_noBackground.png"
+TAB_ICON_PATH = SCRIPT_DIR / "Logo" / "NJStatCast_nobackground_png.png"
+PAGE_ICON = str(TAB_ICON_PATH) if TAB_ICON_PATH.is_file() else "📊"
 DEFAULT_SEASON = "2025-2026"
 ALL_CONFERENCES = "All conferences"
 NET_WEIGHT_WIN = 0.3
@@ -367,10 +368,6 @@ APP_CSS = """
         display: flex;
         justify-content: center;
         margin-bottom: 0.75rem;
-    }
-
-    [data-testid="stImage"] img {
-        filter: invert(1);
     }
 
     [data-testid="stSidebar"] [data-testid="stImage"] img {
