@@ -15,9 +15,29 @@ import streamlit as st
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 SCRAPER = SCRIPT_DIR / "scraper.py"
-LOGO_PATH = SCRIPT_DIR / "Logo" / "WhiteNJStatCast_nobackground.png"
-LOGO_WORDMARK_PATH = SCRIPT_DIR / "Logo" / "WhiteNJStatCastWords_noBackground.png"
-TAB_ICON_PATH = SCRIPT_DIR / "Logo" / "NJStatCast_nobackground_png.png"
+def _image_path(*candidates: Path) -> Path:
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[0]
+
+
+LOGO_PATH = _image_path(
+    SCRIPT_DIR / "Images" / "WhiteNJStatCast_nobackground.png",
+    SCRIPT_DIR / "Logo" / "WhiteNJStatCast_nobackground.png",
+)
+LOGO_WORDMARK_PATH = _image_path(
+    SCRIPT_DIR / "Images" / "WhiteNJStatCastWords_noBackground.png",
+    SCRIPT_DIR / "Logo" / "WhiteNJStatCastWords_noBackground.png",
+)
+TAB_ICON_PATH = _image_path(
+    SCRIPT_DIR / "Images" / "NJStatCast_nobackground_png.png",
+    SCRIPT_DIR / "Logo" / "NJStatCast_nobackground_png.png",
+)
+BASKETBALL_HOME_IMAGE = _image_path(
+    SCRIPT_DIR / "Images" / "basketball_black and white.png",
+    SCRIPT_DIR / "Logo" / "basketball_black and white.png",
+)
 PAGE_ICON = str(TAB_ICON_PATH) if TAB_ICON_PATH.is_file() else "📊"
 DEFAULT_SEASON = "2025-2026"
 ALL_CONFERENCES = "All conferences"
@@ -325,6 +345,48 @@ APP_CSS = """
         color: var(--nj-text-muted) !important;
     }
 
+    [data-testid="stVerticalBlockBorderWrapper"]:has(.nj-sport-card-wrap) {
+        background: var(--nj-surface) !important;
+        border-color: var(--nj-border) !important;
+        border-radius: var(--nj-radius) !important;
+        overflow: hidden;
+        padding: 0 !important;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"]:has(.nj-sport-card-wrap):hover {
+        border-color: var(--nj-border-subtle) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"]:has(.nj-sport-card-wrap) [data-testid="stImage"] {
+        margin: 0;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"]:has(.nj-sport-card-wrap) [data-testid="stImage"] img {
+        display: block;
+        width: 100%;
+        max-height: 240px;
+        object-fit: cover;
+        object-position: center 35%;
+        border-bottom: 1px solid var(--nj-border);
+    }
+
+    .nj-sport-card-body {
+        padding: 1.5rem 1.5rem 0;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"]:has(.nj-sport-card-wrap) .stButton {
+        padding: 0.75rem 1.5rem 1.5rem;
+    }
+
+    .nj-sport-card-body h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--nj-text) !important;
+    }
+
     .nj-page-header {
         margin-bottom: 1.75rem;
         padding-bottom: 1.5rem;
@@ -428,19 +490,22 @@ def render_home_page(basketball_page: str) -> None:
 
     _, center, _ = st.columns([1, 1.4, 1])
     with center:
-        st.markdown(
-            """
-            <div class="nj-card">
-                <p class="nj-card-label">Season analytics</p>
-                <h3>Basketball</h3>
-                <p>Statewide Net ratings, conference filters, strength of schedule, and league strength.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.write("")
-        if st.button("Open basketball rankings", type="primary", use_container_width=True):
-            st.switch_page(basketball_page)
+        with st.container(border=True):
+            st.markdown('<div class="nj-sport-card-wrap" aria-hidden="true"></div>', unsafe_allow_html=True)
+            if BASKETBALL_HOME_IMAGE.is_file():
+                st.image(str(BASKETBALL_HOME_IMAGE), use_container_width=True)
+            st.markdown(
+                """
+                <div class="nj-sport-card-body">
+                    <p class="nj-card-label">Season analytics</p>
+                    <h3>Basketball</h3>
+                    <p>Statewide Net ratings, conference filters, strength of schedule, and league strength.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("Open basketball rankings", type="primary", use_container_width=True):
+                st.switch_page(basketball_page)
 
 
 def _minmax_normalize(series: pd.Series) -> pd.Series:
