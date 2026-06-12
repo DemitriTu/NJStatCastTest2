@@ -1,4 +1,4 @@
-"""Shared dashboard logic for NJ Stat Cast basketball rankings."""
+"""Shared dashboard logic for NJ Stat Cast sports rankings."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import streamlit as st
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
+FOOTBALL_DATA_CACHE_JSON = SCRIPT_DIR / "football_data_cache.json"
 SCRAPER = SCRIPT_DIR / "scraper.py"
 def _image_path(*candidates: Path) -> Path:
     for path in candidates:
@@ -40,6 +42,35 @@ BASKETBALL_HOME_IMAGE = _image_path(
 )
 PAGE_ICON = str(TAB_ICON_PATH) if TAB_ICON_PATH.is_file() else "📊"
 DEFAULT_SEASON = "2025-2026"
+
+
+@dataclass(frozen=True)
+class SportPageConfig:
+    key: str
+    label: str
+    cache_path: Path
+    page_path: str
+    description: str
+    home_image: Path | None = None
+
+
+BASKETBALL_CONFIG = SportPageConfig(
+    key="basketball",
+    label="Basketball",
+    cache_path=DATA_CACHE_JSON,
+    page_path="pages/1_Basketball.py",
+    description="Statewide Net ratings, conference filters, strength of schedule, and league strength.",
+    home_image=BASKETBALL_HOME_IMAGE if BASKETBALL_HOME_IMAGE.is_file() else None,
+)
+
+FOOTBALL_CONFIG = SportPageConfig(
+    key="football",
+    label="Football",
+    cache_path=FOOTBALL_DATA_CACHE_JSON,
+    page_path="pages/2_Football.py",
+    description="Statewide Net ratings, conference filters, strength of schedule, and league strength.",
+)
+
 ALL_CONFERENCES = "All conferences"
 NET_WEIGHT_WIN = 0.3
 NET_WEIGHT_SOS = 0.5
@@ -471,7 +502,33 @@ def _render_wordmark(*, use_container_width: bool = True) -> None:
         st.image(str(path), use_container_width=use_container_width)
 
 
-def render_home_page(basketball_page: str) -> None:
+def _render_home_sport_card(sport: SportPageConfig) -> None:
+    _, center, _ = st.columns([1, 1.4, 1])
+    with center:
+        with st.container(border=True):
+            st.markdown('<div class="nj-sport-card-wrap" aria-hidden="true"></div>', unsafe_allow_html=True)
+            if sport.home_image and sport.home_image.is_file():
+                st.image(str(sport.home_image), use_container_width=True)
+            st.markdown(
+                f"""
+                <div class="nj-sport-card-body">
+                    <p class="nj-card-label">Season analytics</p>
+                    <h3>{sport.label}</h3>
+                    <p>{sport.description}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                f"Open {sport.label.lower()} rankings",
+                type="primary",
+                use_container_width=True,
+                key=f"open_{sport.key}",
+            ):
+                st.switch_page(sport.page_path)
+
+
+def render_home_page(sports: list[SportPageConfig]) -> None:
     _, logo_col, _ = st.columns([0.75, 2.5, 0.75])
     with logo_col:
         _render_wordmark()
@@ -488,24 +545,8 @@ def render_home_page(basketball_page: str) -> None:
         unsafe_allow_html=True,
     )
 
-    _, center, _ = st.columns([1, 1.4, 1])
-    with center:
-        with st.container(border=True):
-            st.markdown('<div class="nj-sport-card-wrap" aria-hidden="true"></div>', unsafe_allow_html=True)
-            if BASKETBALL_HOME_IMAGE.is_file():
-                st.image(str(BASKETBALL_HOME_IMAGE), use_container_width=True)
-            st.markdown(
-                """
-                <div class="nj-sport-card-body">
-                    <p class="nj-card-label">Season analytics</p>
-                    <h3>Basketball</h3>
-                    <p>Statewide Net ratings, conference filters, strength of schedule, and league strength.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            if st.button("Open basketball rankings", type="primary", use_container_width=True):
-                st.switch_page(basketball_page)
+    for sport in sports:
+        _render_home_sport_card(sport)
 
 
 def _minmax_normalize(series: pd.Series) -> pd.Series:
@@ -810,11 +851,11 @@ def _format_timestamp(ts: str | None) -> str:
         return ts
 
 
-def load_cached_data() -> tuple[pd.DataFrame | None, str | None]:
-    if not DATA_CACHE_JSON.is_file():
+def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame | None, str | None]:
+    if not cache_path.is_file():
         return None, None
     try:
-        payload = json.loads(DATA_CACHE_JSON.read_text(encoding="utf-8"))
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None, None
     teams = payload.get("teams")
@@ -843,15 +884,19 @@ def run_scraper(
     single_url: str | None,
     skip_schedule: bool,
     sos_only: bool,
+    sport: str,
+    cache_path: Path,
 ) -> tuple[bool, str]:
     env = os.environ.copy()
     env["NJ_STANDINGS_SEASON"] = season.strip()
+    env["NJ_STANDINGS_SPORT"] = sport
     env.pop("NJ_STANDINGS_URL", None)
-    cmd = [sys.executable, str(SCRAPER), "--season", season.strip()]
+    cmd = [sys.executable, str(SCRAPER), "--season", season.strip(), "--sport", sport]
     if sos_only:
         cmd.append("--sos-only")
-        cmd.extend(["--cache-in", str(DATA_CACHE_JSON)])
+        cmd.extend(["--cache-in", str(cache_path), "--cache-out", str(cache_path)])
     else:
+        cmd.extend(["--cache-out", str(cache_path)])
         if single_url and single_url.strip():
             cmd.extend(["--url", single_url.strip()])
             env["NJ_STANDINGS_URL"] = single_url.strip()
@@ -874,15 +919,15 @@ def run_scraper(
         return False, str(e)
 
 
-def render_basketball_page() -> None:
+def render_sport_page(sport: SportPageConfig) -> None:
     logo_col, header_col = st.columns([1, 5], gap="medium")
     with logo_col:
         _render_logo(width=96)
     with header_col:
         st.markdown(
-            """
+            f"""
             <div class="nj-page-header">
-                <p class="nj-eyebrow">Basketball</p>
+                <p class="nj-eyebrow">{sport.label}</p>
                 <h1>Statewide Rankings</h1>
                 <p class="nj-page-sub">
                     Net rating leaderboard with in-state schedule adjustments and head-to-head tiebreakers.
@@ -902,7 +947,7 @@ def render_basketball_page() -> None:
 
     with st.sidebar:
         _render_logo(width=120)
-        df_preview, last_updated = load_cached_data()
+        df_preview, last_updated = load_cached_data(sport.cache_path)
         st.markdown(
             f'<div class="nj-sidebar-meta"><strong>Last updated</strong>{_format_timestamp(last_updated)}</div>',
             unsafe_allow_html=True,
@@ -912,27 +957,32 @@ def render_basketball_page() -> None:
                 "Season",
                 value=DEFAULT_SEASON,
                 help="Season folder on NJ.com, e.g. 2025-2026.",
+                key=f"season_{sport.key}",
             )
             single_url = st.text_input(
                 "Single conference URL (optional)",
                 value="",
                 placeholder="Leave empty to scrape all conferences",
                 help="If set, only this page is scraped instead of the full conference list.",
+                key=f"single_url_{sport.key}",
             )
             skip_schedule = st.checkbox(
                 "Skip schedule / SOS (faster)",
                 value=False,
                 help="Only scrape standings; leave SOS columns empty.",
+                key=f"skip_schedule_{sport.key}",
             )
             sos_only = st.checkbox(
                 "Resume SOS only (from cache)",
                 value=False,
-                help="Load data_cache.json and run schedule + SOS only.",
+                help=f"Load {sport.cache_path.name} and run schedule + SOS only.",
+                key=f"sos_only_{sport.key}",
             )
             trigger_scrape = st.button(
                 "Run scraper",
                 type="primary",
                 use_container_width=True,
+                key=f"scrape_{sport.key}",
             )
 
         if trigger_scrape:
@@ -954,10 +1004,12 @@ def render_basketball_page() -> None:
                         single_url=single_url or None,
                         skip_schedule=skip_schedule,
                         sos_only=sos_only,
+                        sport=sport.key,
+                        cache_path=sport.cache_path,
                     )
                 if ok:
                     st.success(msg)
-                    df_preview, last_updated = load_cached_data()
+                    df_preview, last_updated = load_cached_data(sport.cache_path)
                 else:
                     st.error(msg)
 
@@ -979,6 +1031,7 @@ def render_basketball_page() -> None:
             "Conference",
             options=[ALL_CONFERENCES] + conferences,
             index=0,
+            key=f"conference_{sport.key}",
         )
     with metric_col:
         view = _filter_and_rank(df, selected)
@@ -1027,3 +1080,11 @@ def render_basketball_page() -> None:
             unsafe_allow_html=True,
         )
         _render_conference_strength_chart(conf_chart)
+
+
+def render_basketball_page() -> None:
+    render_sport_page(BASKETBALL_CONFIG)
+
+
+def render_football_page() -> None:
+    render_sport_page(FOOTBALL_CONFIG)

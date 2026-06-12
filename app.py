@@ -6,14 +6,20 @@ from __future__ import annotations
 
 import streamlit as st
 
-from dashboard import PAGE_ICON, inject_app_styles, render_home_page
+from dashboard import (
+    BASKETBALL_CONFIG,
+    FOOTBALL_CONFIG,
+    PAGE_ICON,
+    inject_app_styles,
+    render_home_page,
+)
 
-BASKETBALL_PAGE = "pages/1_Basketball.py"
+HOME_SPORTS = [BASKETBALL_CONFIG, FOOTBALL_CONFIG]
 
 
 def _home() -> None:
     inject_app_styles()
-    render_home_page(BASKETBALL_PAGE)
+    render_home_page(HOME_SPORTS)
 
 
 st.set_page_config(
@@ -26,7 +32,8 @@ st.set_page_config(
 pg = st.navigation(
     [
         st.Page(_home, title="Home", default=True),
-        st.Page(BASKETBALL_PAGE, title="Basketball"),
+        st.Page(BASKETBALL_CONFIG.page_path, title="Basketball"),
+        st.Page(FOOTBALL_CONFIG.page_path, title="Football"),
     ],
     position="top",
 )

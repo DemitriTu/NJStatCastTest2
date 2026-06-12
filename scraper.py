@@ -1,5 +1,5 @@
 """
-Scrape NJ.com high school basketball standings with Playwright.
+Scrape NJ.com high school sports standings with Playwright.
 Handles JS-rendered content and tables inside iframes.
 Optional schedule scrape for strength of schedule (SOS).
 """
@@ -12,7 +12,10 @@ import json
 import os
 import re
 import sys
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import get_close_matches
 from pathlib import Path
@@ -22,16 +25,11 @@ from playwright.sync_api import Playwright, Page, sync_playwright
 
 WL_RE = re.compile(r"^(\d+)\s*-\s*(\d+)$")
 SCHEDULE_RESULT_RE = re.compile(r"^([WL])\s+(\d+)\s*-\s*(\d+)$", re.I)
-SCHOOL_PATH_RE = re.compile(r"/school/([^/]+)/boysbasketball", re.I)
 SCRIPT_DIR = Path(__file__).resolve().parent
-DATA_CACHE_PATH = SCRIPT_DIR / "data_cache.json"
-
-DEFAULT_SEASON = "2025-2026"
-STANDINGS_BASE = "https://highschoolsports.nj.com/boysbasketball/standings/season"
 SITE_ORIGIN = "https://highschoolsports.nj.com"
+DEFAULT_SEASON = "2025-2026"
 
-# Query-string values as NJ.com expects them (spaces / hyphens preserved).
-NJ_CONFERENCES: tuple[str, ...] = (
+NJ_BASKETBALL_CONFERENCES: tuple[str, ...] = (
     "BCSL",
     "Big North",
     "Cape-Atlantic",
@@ -49,7 +47,63 @@ NJ_CONFERENCES: tuple[str, ...] = (
     "UCC",
 )
 
-DEFAULT_URL = f"{STANDINGS_BASE}/{DEFAULT_SEASON}?" + urlencode({"conference": "GMC"})
+NJ_FOOTBALL_CONFERENCES: tuple[str, ...] = (
+    "Big Central",
+    "Independent",
+    "NJIC",
+    "SFC",
+    "Shore",
+    "WJFL",
+)
+
+
+@dataclass(frozen=True)
+class SportSettings:
+    key: str
+    path_segment: str
+    conferences: tuple[str, ...]
+    cache_filename: str
+    json_filename: str
+    csv_filename: str
+
+    @property
+    def standings_base(self) -> str:
+        return f"{SITE_ORIGIN}/{self.path_segment}/standings/season"
+
+    def school_path_re(self) -> re.Pattern[str]:
+        return re.compile(rf"/school/([^/]+)/{re.escape(self.path_segment)}", re.I)
+
+    def conference_standings_url(self, season_id: str, conference: str) -> str:
+        return f"{self.standings_base}/{season_id}?" + urlencode({"conference": conference})
+
+    def team_season_url(self, season_id: str, school_slug: str) -> str:
+        return f"{SITE_ORIGIN}/school/{school_slug}/{self.path_segment}/season/{season_id}"
+
+
+SPORT_SETTINGS: dict[str, SportSettings] = {
+    "basketball": SportSettings(
+        key="basketball",
+        path_segment="boysbasketball",
+        conferences=NJ_BASKETBALL_CONFERENCES,
+        cache_filename="data_cache.json",
+        json_filename="teams.json",
+        csv_filename="data.csv",
+    ),
+    "football": SportSettings(
+        key="football",
+        path_segment="football",
+        conferences=NJ_FOOTBALL_CONFERENCES,
+        cache_filename="football_data_cache.json",
+        json_filename="football_teams.json",
+        csv_filename="football_data.csv",
+    ),
+}
+
+DATA_CACHE_PATH = SCRIPT_DIR / SPORT_SETTINGS["basketball"].cache_filename
+STANDINGS_BASE = SPORT_SETTINGS["basketball"].standings_base
+NJ_CONFERENCES = NJ_BASKETBALL_CONFERENCES
+SCHOOL_PATH_RE = SPORT_SETTINGS["basketball"].school_path_re()
+DEFAULT_URL = SPORT_SETTINGS["basketball"].conference_standings_url(DEFAULT_SEASON, "GMC")
 
 # Blocking third-party ad/analytics requests prevents sponsored `hs-offer` rows
 # from replacing real standings rows in headless Chromium.
@@ -77,12 +131,19 @@ BLOCKED_URL_SUBSTRINGS = (
 )
 
 
-def conference_standings_url(season_id: str, conference: str) -> str:
-    return f"{STANDINGS_BASE}/{season_id}?" + urlencode({"conference": conference})
+def get_sport_settings(sport: str) -> SportSettings:
+    key = (sport or "basketball").strip().lower()
+    if key not in SPORT_SETTINGS:
+        raise ValueError(f"Unknown sport {sport!r}; expected one of {sorted(SPORT_SETTINGS)}")
+    return SPORT_SETTINGS[key]
 
 
-def team_season_url(season_id: str, school_slug: str) -> str:
-    return f"{SITE_ORIGIN}/school/{school_slug}/boysbasketball/season/{season_id}"
+def conference_standings_url(season_id: str, conference: str, sport: SportSettings | None = None) -> str:
+    return (sport or SPORT_SETTINGS["basketball"]).conference_standings_url(season_id, conference)
+
+
+def team_season_url(season_id: str, school_slug: str, sport: SportSettings | None = None) -> str:
+    return (sport or SPORT_SETTINGS["basketball"]).team_season_url(season_id, school_slug)
 
 
 def compute_avg_margin(pf: int, pa: int, gp: int) -> float:
@@ -100,6 +161,80 @@ def _cell_text(cell) -> str:
     return (cell.inner_text() or "").strip()
 
 
+def _strip_html_tags(s: str) -> str:
+    return re.sub(r"<[^>]+>", "", s or "").replace("\n", " ").strip()
+
+
+def _fetch_standings_html(url: str, timeout_sec: int = 60) -> str:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+        return resp.read().decode("utf-8", "replace")
+
+
+def _extract_rows_from_standings_html(html: str, sport: SportSettings) -> list[dict[str, str | int | float]]:
+    """Parse team rows from server-rendered standings HTML (before ad JS replaces cells)."""
+    rows_out: list[dict[str, str | int | float]] = []
+    seg = re.escape(sport.path_segment)
+    link_pat = re.compile(
+        rf'href="/school/([^/]+)/{seg}/[^"]*"[^>]*>([^<]+)</a>',
+        re.I,
+    )
+    for tr_html in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S | re.I):
+        tr_lower = tr_html.lower()
+        if "group-header" in tr_lower or "hs-offer" in tr_lower:
+            continue
+        link_m = link_pat.search(tr_html)
+        if not link_m:
+            continue
+        slug = link_m.group(1)
+        team = _strip_html_tags(link_m.group(2))
+        if not team or team.upper() in ("TEAM", "SCHOOL"):
+            continue
+        tds = re.findall(r"<td[^>]*>(.*?)</td>", tr_html, re.S | re.I)
+        texts = [_strip_html_tags(t) for t in tds]
+        if len(texts) < 3:
+            continue
+        wl_idx = next((i for i, t in enumerate(texts) if WL_RE.match(t or "")), None)
+        if wl_idx is None:
+            continue
+        w_m = WL_RE.match(texts[wl_idx])
+        if not w_m:
+            continue
+        wins, losses = int(w_m.group(1)), int(w_m.group(2))
+        gp = wins + losses
+        if gp <= 0:
+            continue
+        pf = _parse_int(texts[-2])
+        pa = _parse_int(texts[-1])
+        if pf is None or pa is None:
+            continue
+        margin = compute_avg_margin(pf, pa, gp)
+        win_pct = round(wins / gp, 4) if gp else 0.0
+        rows_out.append(
+            {
+                "Team": team,
+                "Wins": wins,
+                "Losses": losses,
+                "GP": gp,
+                "Win_Pct": win_pct,
+                "PF": pf,
+                "PA": pa,
+                "Avg_Margin": margin,
+                "School_Slug": slug,
+            }
+        )
+    return rows_out
+
+
 def _parse_int(s: str) -> int | None:
     try:
         return int(re.sub(r"[^\d-]", "", s))
@@ -107,10 +242,10 @@ def _parse_int(s: str) -> int | None:
         return None
 
 
-def _slug_from_href(href: str | None) -> str:
+def _slug_from_href(href: str | None, sport: SportSettings | None = None) -> str:
     if not href:
         return ""
-    m = SCHOOL_PATH_RE.search(href)
+    m = (sport or SPORT_SETTINGS["basketball"]).school_path_re().search(href)
     return m.group(1) if m else ""
 
 
@@ -122,7 +257,10 @@ def _row_is_data_row(cells: list[str]) -> bool:
     return False
 
 
-def _extract_rows_from_table_html(frame) -> list[dict[str, str | int | float]]:
+def _extract_rows_from_table_html(
+    frame,
+    sport: SportSettings | None = None,
+) -> list[dict[str, str | int | float]]:
     """Parse standings-like tables: Team, W-L, ..., PF, PA (last two numeric)."""
     rows_out: list[dict[str, str | int | float]] = []
     tables = frame.locator("table")
@@ -148,6 +286,8 @@ def _extract_rows_from_table_html(frame) -> list[dict[str, str | int | float]]:
                 continue
             wins, losses = int(w_m.group(1)), int(w_m.group(2))
             gp = wins + losses
+            if gp <= 0:
+                continue
             pf = _parse_int(texts[-2])
             pa = _parse_int(texts[-1])
             if pf is None or pa is None:
@@ -162,7 +302,7 @@ def _extract_rows_from_table_html(frame) -> list[dict[str, str | int | float]]:
                 al = first_cell.locator("a")
                 if al.count() > 0:
                     href = al.first.get_attribute("href")
-            school_slug = _slug_from_href(href)
+            school_slug = _slug_from_href(href, sport)
             win_pct = round(wins / gp, 4) if gp else 0.0
             rows_out.append(
                 {
@@ -247,7 +387,21 @@ def _launch_context_page(p: Playwright):
     return browser, context, page
 
 
-def _scrape_standings_page(page: Page, url: str, timeout_ms: int) -> list[dict]:
+def _scrape_standings_page(
+    page: Page,
+    url: str,
+    timeout_ms: int,
+    sport: SportSettings | None = None,
+) -> list[dict]:
+    sport = sport or SPORT_SETTINGS["basketball"]
+    try:
+        html = _fetch_standings_html(url, timeout_sec=max(30, timeout_ms // 1000))
+        http_rows = _extract_rows_from_standings_html(html, sport)
+        if http_rows:
+            return _dedupe_within_page(http_rows)
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        print(f"scraper: HTTP standings fetch failed for {url!r}: {e}", file=sys.stderr)
+
     page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
     try:
         page.wait_for_load_state("networkidle", timeout=min(timeout_ms, 45000))
@@ -261,7 +415,7 @@ def _scrape_standings_page(page: Page, url: str, timeout_ms: int) -> list[dict]:
     all_rows: list[dict] = []
     for frame in page.frames:
         try:
-            all_rows.extend(_extract_rows_from_table_html(frame))
+            all_rows.extend(_extract_rows_from_table_html(frame, sport))
         except Exception:
             continue
     return _dedupe_within_page(all_rows)
@@ -299,9 +453,15 @@ def _parse_schedule_game_row(row) -> dict | None:
     return game
 
 
-def scrape_schedule_games(page: Page, season_id: str, school_slug: str, timeout_ms: int) -> list[dict]:
+def scrape_schedule_games(
+    page: Page,
+    season_id: str,
+    school_slug: str,
+    timeout_ms: int,
+    sport: SportSettings | None = None,
+) -> list[dict]:
     """Completed and scheduled games from the team season schedule table."""
-    url = team_season_url(season_id, school_slug)
+    url = team_season_url(season_id, school_slug, sport)
     page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
     try:
         page.wait_for_load_state("networkidle", timeout=min(timeout_ms, 28000))
@@ -330,11 +490,17 @@ def scrape_schedule_games(page: Page, season_id: str, school_slug: str, timeout_
     return games
 
 
-def scrape_schedule_opponent_names(page: Page, season_id: str, school_slug: str, timeout_ms: int) -> list[str]:
+def scrape_schedule_opponent_names(
+    page: Page,
+    season_id: str,
+    school_slug: str,
+    timeout_ms: int,
+    sport: SportSettings | None = None,
+) -> list[str]:
     """Opponent display names from the team season schedule table."""
     names: list[str] = []
     seen: set[str] = set()
-    for game in scrape_schedule_games(page, season_id, school_slug, timeout_ms):
+    for game in scrape_schedule_games(page, season_id, school_slug, timeout_ms, sport):
         key = _norm_team_name(game["Opponent"])
         if key in seen:
             continue
@@ -473,6 +639,7 @@ def _schedule_worker(
     timeout_ms: int,
     slug_by_norm: dict[str, str],
     norm_list: list[str],
+    sport: SportSettings,
 ) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     if not slugs:
@@ -498,7 +665,7 @@ def _schedule_worker(
                         file=sys.stderr,
                     )
                 try:
-                    games = scrape_schedule_games(page, season_id, slug, timeout_ms)
+                    games = scrape_schedule_games(page, season_id, slug, timeout_ms, sport)
                     out[slug] = _resolve_games_to_slugs(games, slug, slug_by_norm, norm_list)
                 except Exception as e:
                     print(f"scraper: schedule failed for {slug!r}: {e}", file=sys.stderr)
@@ -514,7 +681,9 @@ def scrape_games_map(
     teams: list[dict],
     timeout_ms: int,
     parallel_workers: int = 4,
+    sport: SportSettings | None = None,
 ) -> dict[str, list[dict]]:
+    sport = sport or SPORT_SETTINGS["basketball"]
     slug_by_norm, norm_list = _build_slug_lookup(teams)
     slugs = [(t.get("School_Slug") or "").strip() for t in teams if (t.get("School_Slug") or "").strip()]
     if not slugs:
@@ -522,7 +691,7 @@ def scrape_games_map(
 
     workers = max(1, min(max(1, parallel_workers), len(slugs)))
     if workers == 1:
-        return _schedule_worker(0, slugs, season_id, timeout_ms, slug_by_norm, norm_list)
+        return _schedule_worker(0, slugs, season_id, timeout_ms, slug_by_norm, norm_list, sport)
 
     chunks: list[list[str]] = [[] for _ in range(workers)]
     for i, s in enumerate(slugs):
@@ -543,6 +712,7 @@ def scrape_games_map(
                     timeout_ms,
                     slug_by_norm,
                     norm_list,
+                    sport,
                 )
             )
         for fut in as_completed(futs):
@@ -555,8 +725,15 @@ def scrape_opponents_map(
     teams: list[dict],
     timeout_ms: int,
     parallel_workers: int = 4,
+    sport: SportSettings | None = None,
 ) -> dict[str, list[str]]:
-    games_by_slug = scrape_games_map(season_id, teams, timeout_ms, parallel_workers=parallel_workers)
+    games_by_slug = scrape_games_map(
+        season_id,
+        teams,
+        timeout_ms,
+        parallel_workers=parallel_workers,
+        sport=sport,
+    )
     return {
         slug: _opponent_slugs_from_games(games, slug)
         for slug, games in games_by_slug.items()
@@ -568,12 +745,14 @@ def attach_schedule_and_sos(
     teams: list[dict],
     timeout_ms: int = 60000,
     parallel_workers: int = 4,
+    sport: SportSettings | None = None,
 ) -> None:
     games_by_slug = scrape_games_map(
         season_id,
         teams,
         timeout_ms,
         parallel_workers=parallel_workers,
+        sport=sport,
     )
     opponents_by_slug = {
         slug: _opponent_slugs_from_games(games, slug) for slug, games in games_by_slug.items()
@@ -590,11 +769,15 @@ def attach_schedule_and_sos(
     compute_sos_for_teams(teams, opponents_by_slug)
 
 
-def scrape_standings(url: str, timeout_ms: int = 60000) -> list[dict[str, str | int | float]]:
+def scrape_standings(
+    url: str,
+    timeout_ms: int = 60000,
+    sport: SportSettings | None = None,
+) -> list[dict[str, str | int | float]]:
     with sync_playwright() as p:
         browser, context, page = _launch_context_page(p)
         try:
-            rows = _scrape_standings_page(page, url, timeout_ms)
+            rows = _scrape_standings_page(page, url, timeout_ms, sport)
         finally:
             context.close()
             browser.close()
@@ -605,15 +788,20 @@ def scrape_standings(url: str, timeout_ms: int = 60000) -> list[dict[str, str | 
     return rows
 
 
-def scrape_all_conferences(season_id: str = DEFAULT_SEASON, timeout_ms: int = 60000) -> list[dict]:
+def scrape_all_conferences(
+    season_id: str = DEFAULT_SEASON,
+    timeout_ms: int = 60000,
+    sport: SportSettings | None = None,
+) -> list[dict]:
+    sport = sport or SPORT_SETTINGS["basketball"]
     merged: list[dict] = []
     with sync_playwright() as p:
         browser, context, page = _launch_context_page(p)
         try:
-            for conf in NJ_CONFERENCES:
-                url = conference_standings_url(season_id, conf)
+            for conf in sport.conferences:
+                url = sport.conference_standings_url(season_id, conf)
                 try:
-                    rows = _scrape_standings_page(page, url, timeout_ms)
+                    rows = _scrape_standings_page(page, url, timeout_ms, sport)
                     for r in rows:
                         copy = dict(r)
                         copy["Conference"] = conf
@@ -644,9 +832,11 @@ def save_teams(
     teams: list[dict],
     json_path: Path | None = None,
     csv_path: Path | None = None,
+    cache_path: Path | None = None,
 ) -> None:
     json_path = json_path or (SCRIPT_DIR / "teams.json")
     csv_path = csv_path or (SCRIPT_DIR / "data.csv")
+    cache_path = cache_path or DATA_CACHE_PATH
     ranked = sorted(teams, key=lambda x: float(x["Avg_Margin"]), reverse=True)
     ranked = [{k: v for k, v in t.items() if k != "Category"} for t in ranked]
     json_path.write_text(json.dumps(ranked, indent=2), encoding="utf-8")
@@ -654,7 +844,7 @@ def save_teams(
         "last_updated": datetime.now(timezone.utc).isoformat(),
         "teams": ranked,
     }
-    DATA_CACHE_PATH.write_text(json.dumps(cache_payload, indent=2), encoding="utf-8")
+    cache_path.write_text(json.dumps(cache_payload, indent=2), encoding="utf-8")
     if ranked:
         csv_rows = [{k: v for k, v in t.items() if k != "Games"} for t in ranked]
         fieldnames = list(csv_rows[0].keys())
@@ -665,7 +855,13 @@ def save_teams(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Scrape NJ.com basketball standings.")
+    parser = argparse.ArgumentParser(description="Scrape NJ.com high school sports standings.")
+    parser.add_argument(
+        "--sport",
+        choices=sorted(SPORT_SETTINGS),
+        default=os.environ.get("NJ_STANDINGS_SPORT", "basketball"),
+        help="Sport to scrape (default: basketball).",
+    )
     parser.add_argument(
         "--url",
         default=None,
@@ -689,8 +885,14 @@ def main() -> int:
     parser.add_argument(
         "--cache-in",
         type=Path,
-        default=DATA_CACHE_PATH,
-        help="JSON file for --sos-only (default: data_cache.json).",
+        default=None,
+        help="JSON file for --sos-only (default: sport cache file).",
+    )
+    parser.add_argument(
+        "--cache-out",
+        type=Path,
+        default=None,
+        help="JSON cache file to write (default: sport cache file).",
     )
     parser.add_argument(
         "--schedule-timeout-ms",
@@ -707,14 +909,20 @@ def main() -> int:
     parser.add_argument(
         "--json-out",
         type=Path,
-        default=SCRIPT_DIR / "teams.json",
+        default=None,
     )
     parser.add_argument(
         "--csv-out",
         type=Path,
-        default=SCRIPT_DIR / "data.csv",
+        default=None,
     )
     args = parser.parse_args()
+
+    sport = get_sport_settings(args.sport)
+    cache_out = args.cache_out or (SCRIPT_DIR / sport.cache_filename)
+    cache_in = args.cache_in or cache_out
+    json_out = args.json_out or (SCRIPT_DIR / sport.json_filename)
+    csv_out = args.csv_out or (SCRIPT_DIR / sport.csv_filename)
 
     schedule_ms = max(5000, args.schedule_timeout_ms)
     schedule_workers = max(1, args.schedule_workers)
@@ -722,11 +930,11 @@ def main() -> int:
     if args.sos_only:
         if args.skip_schedule:
             print("scraper: --sos-only ignores --skip-schedule", file=sys.stderr)
-        if not args.cache_in.is_file():
-            print(f"scraper: no cache file at {args.cache_in}", file=sys.stderr)
+        if not cache_in.is_file():
+            print(f"scraper: no cache file at {cache_in}", file=sys.stderr)
             return 1
         try:
-            teams = load_teams_from_cache(args.cache_in)
+            teams = load_teams_from_cache(cache_in)
         except (OSError, ValueError, json.JSONDecodeError) as e:
             print(f"scraper: failed to load cache: {e}", file=sys.stderr)
             return 1
@@ -735,21 +943,27 @@ def main() -> int:
             teams,
             timeout_ms=schedule_ms,
             parallel_workers=schedule_workers,
+            sport=sport,
         )
-        save_teams(teams, json_path=args.json_out, csv_path=args.csv_out)
+        save_teams(
+            teams,
+            json_path=json_out,
+            csv_path=csv_out,
+            cache_path=cache_out,
+        )
         with_sos = sum(1 for t in teams if t.get("SOS") is not None)
         print(
             f"SOS computed for {with_sos}/{len(teams)} teams.",
             file=sys.stderr,
         )
-        print(f"Saved {len(teams)} teams to {args.json_out} and {args.csv_out}")
+        print(f"Saved {len(teams)} teams to {json_out} and {csv_out}")
         return 0
 
     url = args.url or os.environ.get("NJ_STANDINGS_URL")
     if url:
-        teams = scrape_standings(url)
+        teams = scrape_standings(url, sport=sport)
     else:
-        teams = scrape_all_conferences(args.season)
+        teams = scrape_all_conferences(args.season, sport=sport)
 
     if not teams:
         print("No teams extracted. Check URL or page structure.", file=sys.stderr)
@@ -761,8 +975,13 @@ def main() -> int:
             t.setdefault("Opp_Opp_Win_Pct", None)
             t.setdefault("SOS", None)
             t.setdefault("Games", [])
-        save_teams(teams, json_path=args.json_out, csv_path=args.csv_out)
-        print(f"Saved {len(teams)} teams to {args.json_out} and {args.csv_out}")
+        save_teams(
+            teams,
+            json_path=json_out,
+            csv_path=csv_out,
+            cache_path=cache_out,
+        )
+        print(f"Saved {len(teams)} teams to {json_out} and {csv_out}")
         return 0
 
     for t in teams:
@@ -770,7 +989,12 @@ def main() -> int:
         t.setdefault("Opp_Opp_Win_Pct", None)
         t.setdefault("SOS", None)
         t.setdefault("Games", [])
-    save_teams(teams, json_path=args.json_out, csv_path=args.csv_out)
+    save_teams(
+        teams,
+        json_path=json_out,
+        csv_path=csv_out,
+        cache_path=cache_out,
+    )
     print(
         "Checkpoint: standings saved (SOS not computed yet). "
         "If this run is interrupted, use --sos-only to finish SOS.",
@@ -782,11 +1006,17 @@ def main() -> int:
         teams,
         timeout_ms=schedule_ms,
         parallel_workers=schedule_workers,
+        sport=sport,
     )
-    save_teams(teams, json_path=args.json_out, csv_path=args.csv_out)
+    save_teams(
+        teams,
+        json_path=json_out,
+        csv_path=csv_out,
+        cache_path=cache_out,
+    )
     with_sos = sum(1 for t in teams if t.get("SOS") is not None)
     print(f"SOS computed for {with_sos}/{len(teams)} teams.", file=sys.stderr)
-    print(f"Saved {len(teams)} teams to {args.json_out} and {args.csv_out}")
+    print(f"Saved {len(teams)} teams to {json_out} and {csv_out}")
     return 0
 
 
