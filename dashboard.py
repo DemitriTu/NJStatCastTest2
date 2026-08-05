@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import altair as alt
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
@@ -841,6 +842,115 @@ def _render_conference_strength_chart(chart: pd.DataFrame) -> None:
         st.bar_chart(**chart_args, sort=False)
 
 
+def _pace_net_scatter_df(df: pd.DataFrame) -> pd.DataFrame | None:
+    """One point per team with valid Pace and Net for the scatter chart."""
+    if df.empty or not {"Pace", "Net"}.issubset(df.columns):
+        return None
+    cols = ["Pace", "Net"]
+    if "Team" in df.columns:
+        cols.append("Team")
+    if "Conference" in df.columns:
+        cols.append("Conference")
+    chart = df[cols].copy()
+    chart["Pace"] = pd.to_numeric(chart["Pace"], errors="coerce")
+    chart["Net"] = pd.to_numeric(chart["Net"], errors="coerce")
+    chart = chart.dropna(subset=["Pace", "Net"]).reset_index(drop=True)
+    if chart.empty:
+        return None
+    return chart
+
+
+def _render_pace_net_scatter(chart: pd.DataFrame, *, widget_key: str = "scatter") -> None:
+    selected_team: str | None = None
+    if "Team" in chart.columns:
+        team_names = sorted(chart["Team"].dropna().astype(str).unique().tolist())
+        selected_team = st.selectbox(
+            "Find a team",
+            options=[""] + team_names,
+            format_func=lambda t: "Search teams…" if t == "" else t,
+            key=f"pace_net_team_{widget_key}",
+        )
+        if not selected_team:
+            selected_team = None
+
+    tooltip_fields = [
+        alt.Tooltip("Team:N", title="Team") if "Team" in chart.columns else None,
+        alt.Tooltip("Pace:Q", title="Pace", format=".1f"),
+        alt.Tooltip("Net:Q", title="Net", format=".4f"),
+    ]
+    if "Conference" in chart.columns:
+        tooltip_fields.append(alt.Tooltip("Conference:N", title="Conference"))
+    tooltip = [t for t in tooltip_fields if t is not None]
+
+    pace_min = float(chart["Pace"].min())
+    pace_max = float(chart["Pace"].max())
+    net_min = float(chart["Net"].min())
+    net_max = float(chart["Net"].max())
+    pace_domain = [pace_min - 5, pace_max + 5]
+    net_domain = [net_min - 0.1, net_max + 0.1]
+
+    x_enc = alt.X(
+        "Pace:Q",
+        title="Pace",
+        scale=alt.Scale(domain=pace_domain, nice=False, zero=False, clamp=True),
+    )
+    y_enc = alt.Y(
+        "Net:Q",
+        title="Net",
+        scale=alt.Scale(domain=net_domain, nice=False, zero=False, clamp=True),
+    )
+
+    base_encode: dict = {"x": x_enc, "y": y_enc, "tooltip": tooltip}
+    if "Conference" in chart.columns:
+        base_encode["color"] = alt.Color(
+            "Conference:N",
+            title="Conference",
+            legend=alt.Legend(orient="right"),
+        )
+
+    if selected_team and "Team" in chart.columns:
+        others = chart[chart["Team"] != selected_team]
+        highlight = chart[chart["Team"] == selected_team]
+        background = (
+            alt.Chart(others)
+            .mark_circle(size=55, opacity=0.35, clip=True)
+            .encode(**base_encode)
+        )
+        ring = (
+            alt.Chart(highlight)
+            .mark_circle(size=280, opacity=1, color="#fafafa", clip=True)
+            .encode(x=x_enc, y=y_enc, tooltip=tooltip)
+        )
+        point = (
+            alt.Chart(highlight)
+            .mark_circle(size=140, opacity=1, color="#2563eb", clip=True)
+            .encode(x=x_enc, y=y_enc, tooltip=tooltip)
+        )
+        label = (
+            alt.Chart(highlight)
+            .mark_text(
+                align="left",
+                dx=10,
+                dy=-10,
+                fontSize=13,
+                fontWeight="bold",
+                color="#fafafa",
+            )
+            .encode(x=x_enc, y=y_enc, text="Team:N")
+        )
+        plot = (background + ring + point + label).properties(height=420)
+    else:
+        plot = (
+            alt.Chart(chart)
+            .mark_circle(size=60, opacity=0.85, clip=True)
+            .encode(**base_encode)
+            .properties(height=420)
+        )
+
+    # theme=None keeps Altair axis domains; Streamlit's theme can force axes to start at 0.
+    st.altair_chart(plot, use_container_width=True, theme=None)
+
+
 def _format_timestamp(ts: str | None) -> str:
     if not ts:
         return "Unknown"
@@ -1070,6 +1180,16 @@ def render_sport_page(sport: SportPageConfig) -> None:
         hide_index=True,
         column_config=_leaderboard_column_config(display_cols),
     )
+
+    scatter = _pace_net_scatter_df(view)
+    if scatter is not None:
+        st.divider()
+        st.markdown(
+            '<p class="nj-section-title">Pace vs Net</p>'
+            '<p class="nj-section-desc">Each point is a team in the current view.</p>',
+            unsafe_allow_html=True,
+        )
+        _render_pace_net_scatter(scatter, widget_key=sport.key)
 
     conf_chart = _conference_strength_chart_df(df)
     if conf_chart is not None:
