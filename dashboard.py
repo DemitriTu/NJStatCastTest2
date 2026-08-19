@@ -842,25 +842,67 @@ def _render_conference_strength_chart(chart: pd.DataFrame) -> None:
         st.bar_chart(**chart_args, sort=False)
 
 
-def _pace_net_scatter_df(df: pd.DataFrame) -> pd.DataFrame | None:
-    """One point per team with valid Pace and Net for the scatter chart."""
-    if df.empty or not {"Pace", "Net"}.issubset(df.columns):
+SCATTER_PLOTS: tuple[dict[str, str | float], ...] = (
+    {
+        "label": "Pace vs Net",
+        "desc": "Each point is a team in the current view.",
+        "x_col": "Pace",
+        "y_col": "Net",
+        "x_label": "Pace",
+        "y_label": "Net",
+        "x_pad": 5,
+        "y_pad": 0.1,
+        "x_format": ".1f",
+        "y_format": ".4f",
+        "key": "pace_net",
+    },
+    {
+        "label": "SOS vs Win%",
+        "desc": "Schedule strength vs winning percentage for teams in the current view.",
+        "x_col": "SOS",
+        "y_col": "Win_Pct",
+        "x_label": "SOS",
+        "y_label": "Win%",
+        "x_pad": 0.05,
+        "y_pad": 0.05,
+        "x_format": ".4f",
+        "y_format": ".4f",
+        "key": "sos_win",
+    },
+)
+
+
+def _scatter_df(df: pd.DataFrame, x_col: str, y_col: str) -> pd.DataFrame | None:
+    """One point per team with valid x/y values for a scatter chart."""
+    if df.empty or not {x_col, y_col}.issubset(df.columns):
         return None
-    cols = ["Pace", "Net"]
+    cols = [x_col, y_col]
     if "Team" in df.columns:
         cols.append("Team")
     if "Conference" in df.columns:
         cols.append("Conference")
     chart = df[cols].copy()
-    chart["Pace"] = pd.to_numeric(chart["Pace"], errors="coerce")
-    chart["Net"] = pd.to_numeric(chart["Net"], errors="coerce")
-    chart = chart.dropna(subset=["Pace", "Net"]).reset_index(drop=True)
+    chart[x_col] = pd.to_numeric(chart[x_col], errors="coerce")
+    chart[y_col] = pd.to_numeric(chart[y_col], errors="coerce")
+    chart = chart.dropna(subset=[x_col, y_col]).reset_index(drop=True)
     if chart.empty:
         return None
     return chart
 
 
-def _render_pace_net_scatter(chart: pd.DataFrame, *, widget_key: str = "scatter") -> None:
+def _render_team_scatter(
+    chart: pd.DataFrame,
+    *,
+    x_col: str,
+    y_col: str,
+    x_label: str,
+    y_label: str,
+    x_pad: float,
+    y_pad: float,
+    x_format: str,
+    y_format: str,
+    widget_key: str,
+) -> None:
     selected_team: str | None = None
     if "Team" in chart.columns:
         team_names = sorted(chart["Team"].dropna().astype(str).unique().tolist())
@@ -868,36 +910,38 @@ def _render_pace_net_scatter(chart: pd.DataFrame, *, widget_key: str = "scatter"
             "Find a team",
             options=[""] + team_names,
             format_func=lambda t: "Search teams…" if t == "" else t,
-            key=f"pace_net_team_{widget_key}",
+            key=f"scatter_team_{widget_key}",
         )
         if not selected_team:
             selected_team = None
 
+    x_field = f"{x_col}:Q"
+    y_field = f"{y_col}:Q"
     tooltip_fields = [
         alt.Tooltip("Team:N", title="Team") if "Team" in chart.columns else None,
-        alt.Tooltip("Pace:Q", title="Pace", format=".1f"),
-        alt.Tooltip("Net:Q", title="Net", format=".4f"),
+        alt.Tooltip(x_field, title=x_label, format=x_format),
+        alt.Tooltip(y_field, title=y_label, format=y_format),
     ]
     if "Conference" in chart.columns:
         tooltip_fields.append(alt.Tooltip("Conference:N", title="Conference"))
     tooltip = [t for t in tooltip_fields if t is not None]
 
-    pace_min = float(chart["Pace"].min())
-    pace_max = float(chart["Pace"].max())
-    net_min = float(chart["Net"].min())
-    net_max = float(chart["Net"].max())
-    pace_domain = [pace_min - 5, pace_max + 5]
-    net_domain = [net_min - 0.1, net_max + 0.1]
+    x_min = float(chart[x_col].min())
+    x_max = float(chart[x_col].max())
+    y_min = float(chart[y_col].min())
+    y_max = float(chart[y_col].max())
+    x_domain = [x_min - x_pad, x_max + x_pad]
+    y_domain = [y_min - y_pad, y_max + y_pad]
 
     x_enc = alt.X(
-        "Pace:Q",
-        title="Pace",
-        scale=alt.Scale(domain=pace_domain, nice=False, zero=False, clamp=True),
+        x_field,
+        title=x_label,
+        scale=alt.Scale(domain=x_domain, nice=False, zero=False, clamp=True),
     )
     y_enc = alt.Y(
-        "Net:Q",
-        title="Net",
-        scale=alt.Scale(domain=net_domain, nice=False, zero=False, clamp=True),
+        y_field,
+        title=y_label,
+        scale=alt.Scale(domain=y_domain, nice=False, zero=False, clamp=True),
     )
 
     base_encode: dict = {"x": x_enc, "y": y_enc, "tooltip": tooltip}
@@ -949,6 +993,47 @@ def _render_pace_net_scatter(chart: pd.DataFrame, *, widget_key: str = "scatter"
 
     # theme=None keeps Altair axis domains; Streamlit's theme can force axes to start at 0.
     st.altair_chart(plot, use_container_width=True, theme=None)
+
+
+def _render_scatter_section(view: pd.DataFrame, sport_key: str) -> None:
+    available: list[tuple[dict[str, str | float], pd.DataFrame]] = []
+    for cfg in SCATTER_PLOTS:
+        chart = _scatter_df(view, str(cfg["x_col"]), str(cfg["y_col"]))
+        if chart is not None:
+            available.append((cfg, chart))
+    if not available:
+        return
+
+    st.divider()
+    st.markdown(
+        '<p class="nj-section-title">Team scatter</p>',
+        unsafe_allow_html=True,
+    )
+
+    labels = [str(cfg["label"]) for cfg, _ in available]
+    selected_label = st.selectbox(
+        "Chart",
+        options=labels,
+        key=f"scatter_plot_{sport_key}",
+    )
+    cfg, chart = next(item for item in available if item[0]["label"] == selected_label)
+
+    st.markdown(
+        f'<p class="nj-section-desc">{cfg["desc"]}</p>',
+        unsafe_allow_html=True,
+    )
+    _render_team_scatter(
+        chart,
+        x_col=str(cfg["x_col"]),
+        y_col=str(cfg["y_col"]),
+        x_label=str(cfg["x_label"]),
+        y_label=str(cfg["y_label"]),
+        x_pad=float(cfg["x_pad"]),
+        y_pad=float(cfg["y_pad"]),
+        x_format=str(cfg["x_format"]),
+        y_format=str(cfg["y_format"]),
+        widget_key=f"{sport_key}_{cfg['key']}",
+    )
 
 
 def _format_timestamp(ts: str | None) -> str:
@@ -1181,15 +1266,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
         column_config=_leaderboard_column_config(display_cols),
     )
 
-    scatter = _pace_net_scatter_df(view)
-    if scatter is not None:
-        st.divider()
-        st.markdown(
-            '<p class="nj-section-title">Pace vs Net</p>'
-            '<p class="nj-section-desc">Each point is a team in the current view.</p>',
-            unsafe_allow_html=True,
-        )
-        _render_pace_net_scatter(scatter, widget_key=sport.key)
+    _render_scatter_section(view, sport.key)
 
     conf_chart = _conference_strength_chart_df(df)
     if conf_chart is not None:
