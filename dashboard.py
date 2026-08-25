@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +14,6 @@ import altair as alt
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 FOOTBALL_DATA_CACHE_JSON = SCRIPT_DIR / "football_data_cache.json"
-SCRAPER = SCRIPT_DIR / "scraper.py"
 def _image_path(*candidates: Path) -> Path:
     for path in candidates:
         if path.is_file():
@@ -42,7 +38,6 @@ BASKETBALL_HOME_IMAGE = _image_path(
     SCRIPT_DIR / "Logo" / "basketball_black and white.png",
 )
 PAGE_ICON = str(TAB_ICON_PATH) if TAB_ICON_PATH.is_file() else "📊"
-DEFAULT_SEASON = "2025-2026"
 
 
 @dataclass(frozen=True)
@@ -82,8 +77,6 @@ NET_WEIGHTS = {
     "SOS": NET_WEIGHT_SOS,
     "Avg_Margin": NET_WEIGHT_MARGIN,
 }
-# Full statewide run: conferences + one schedule page per team for SOS (often 1–3+ hours).
-SCRAPER_TIMEOUT_SEC = int(os.environ.get("STREAMLIT_SCRAPER_TIMEOUT_SEC", "10800"))
 
 # (display label, header tooltip) for st.dataframe column_config
 COLUMN_HELP: dict[str, tuple[str, str]] = {
@@ -1073,47 +1066,6 @@ def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
     return _rank_by_net(view)
 
 
-def run_scraper(
-    *,
-    season: str,
-    single_url: str | None,
-    skip_schedule: bool,
-    sos_only: bool,
-    sport: str,
-    cache_path: Path,
-) -> tuple[bool, str]:
-    env = os.environ.copy()
-    env["NJ_STANDINGS_SEASON"] = season.strip()
-    env["NJ_STANDINGS_SPORT"] = sport
-    env.pop("NJ_STANDINGS_URL", None)
-    cmd = [sys.executable, str(SCRAPER), "--season", season.strip(), "--sport", sport]
-    if sos_only:
-        cmd.append("--sos-only")
-        cmd.extend(["--cache-in", str(cache_path), "--cache-out", str(cache_path)])
-    else:
-        cmd.extend(["--cache-out", str(cache_path)])
-        if single_url and single_url.strip():
-            cmd.extend(["--url", single_url.strip()])
-            env["NJ_STANDINGS_URL"] = single_url.strip()
-        if skip_schedule:
-            cmd.append("--skip-schedule")
-    try:
-        r = subprocess.run(
-            cmd,
-            cwd=str(SCRIPT_DIR),
-            capture_output=True,
-            text=True,
-            timeout=SCRAPER_TIMEOUT_SEC,
-            env=env,
-        )
-        msg = (r.stdout or "") + ("\n" + r.stderr if r.stderr else "")
-        return r.returncode == 0, msg.strip() or ("OK" if r.returncode == 0 else "Scraper failed")
-    except subprocess.TimeoutExpired:
-        return False, f"Scraper timed out after {SCRAPER_TIMEOUT_SEC}s"
-    except Exception as e:
-        return False, str(e)
-
-
 def render_sport_page(sport: SportPageConfig) -> None:
     logo_col, header_col = st.columns([1, 5], gap="medium")
     with logo_col:
@@ -1147,136 +1099,82 @@ def render_sport_page(sport: SportPageConfig) -> None:
             f'<div class="nj-sidebar-meta"><strong>Last updated</strong>{_format_timestamp(last_updated)}</div>',
             unsafe_allow_html=True,
         )
-        with st.expander("Refresh data", expanded=False):
-            season = st.text_input(
-                "Season",
-                value=DEFAULT_SEASON,
-                help="Season folder on NJ.com, e.g. 2025-2026.",
-                key=f"season_{sport.key}",
-            )
-            single_url = st.text_input(
-                "Single conference URL (optional)",
-                value="",
-                placeholder="Leave empty to scrape all conferences",
-                help="If set, only this page is scraped instead of the full conference list.",
-                key=f"single_url_{sport.key}",
-            )
-            skip_schedule = st.checkbox(
-                "Skip schedule / SOS (faster)",
-                value=False,
-                help="Only scrape standings; leave SOS columns empty.",
-                key=f"skip_schedule_{sport.key}",
-            )
-            sos_only = st.checkbox(
-                "Resume SOS only (from cache)",
-                value=False,
-                help=f"Load {sport.cache_path.name} and run schedule + SOS only.",
-                key=f"sos_only_{sport.key}",
-            )
-            trigger_scrape = st.button(
-                "Run scraper",
-                type="primary",
-                use_container_width=True,
-                key=f"scrape_{sport.key}",
-            )
-
-        if trigger_scrape:
-            if sos_only and skip_schedule:
-                st.error('Uncheck "Skip schedule" or "Resume SOS only" — they cannot be used together.')
-            else:
-                spin = (
-                    "Running SOS from cache…"
-                    if sos_only
-                    else (
-                        "Running scraper (standings only)…"
-                        if skip_schedule
-                        else "Running scraper (standings + schedules for SOS)…"
-                    )
-                )
-                with st.spinner(spin):
-                    ok, msg = run_scraper(
-                        season=season,
-                        single_url=single_url or None,
-                        skip_schedule=skip_schedule,
-                        sos_only=sos_only,
-                        sport=sport.key,
-                        cache_path=sport.cache_path,
-                    )
-                if ok:
-                    st.success(msg)
-                    df_preview, last_updated = load_cached_data(sport.cache_path)
-                else:
-                    st.error(msg)
 
     df = df_preview
     if df is None:
-        st.info("No data found. Open **Refresh data** in the sidebar to run the scraper.")
+        st.info("No data found. Run the scraper from the backend/CLI to populate the cache.")
         return
 
-    if "Conference" in df.columns:
-        conferences = sorted(
-            c for c in df["Conference"].dropna().astype(str).unique() if c.strip()
-        )
-    else:
-        conferences = []
+    teams_tab, players_tab = st.tabs(["Teams", "Players"])
 
-    filter_col, metric_col = st.columns([3, 1])
-    with filter_col:
-        selected = st.selectbox(
-            "Conference",
-            options=[ALL_CONFERENCES] + conferences,
-            index=0,
-            key=f"conference_{sport.key}",
-        )
-    with metric_col:
-        view = _filter_and_rank(df, selected)
-        st.metric("Teams", len(view))
+    with teams_tab:
+        if "Conference" in df.columns:
+            conferences = sorted(
+                c for c in df["Conference"].dropna().astype(str).unique() if c.strip()
+            )
+        else:
+            conferences = []
 
-    st.markdown(
-        '<p class="nj-section-title">Leaderboard</p>'
-        '<p class="nj-section-desc">Sorted by Net within the selected view.</p>',
-        unsafe_allow_html=True,
-    )
+        filter_col, metric_col = st.columns([3, 1])
+        with filter_col:
+            selected = st.selectbox(
+                "Conference",
+                options=[ALL_CONFERENCES] + conferences,
+                index=0,
+                key=f"conference_{sport.key}",
+            )
+        with metric_col:
+            view = _filter_and_rank(df, selected)
+            st.metric("Teams", len(view))
 
-    display_cols = [
-        c
-        for c in [
-            "Rank",
-            "Net",
-            "Team",
-            "Conference",
-            "Conf_Strength",
-            "GP",
-            "Win_Pct",
-            "PF",
-            "PA",
-            "Pace",
-            "Avg_Margin",
-            "SOS",
-        ]
-        if c in view.columns
-    ]
-    if view.empty and selected != ALL_CONFERENCES:
-        st.warning(f"No teams found for conference: {selected}")
-    table = view[display_cols] if not view.empty else view
-    st.dataframe(
-        table,
-        use_container_width=True,
-        hide_index=True,
-        column_config=_leaderboard_column_config(display_cols),
-    )
-
-    _render_scatter_section(view, sport.key)
-
-    conf_chart = _conference_strength_chart_df(df)
-    if conf_chart is not None:
-        st.divider()
         st.markdown(
-            '<p class="nj-section-title">Conference strength</p>'
-            '<p class="nj-section-desc">Average statewide win% by conference.</p>',
+            '<p class="nj-section-title">Leaderboard</p>'
+            '<p class="nj-section-desc">Sorted by Net within the selected view.</p>',
             unsafe_allow_html=True,
         )
-        _render_conference_strength_chart(conf_chart)
+
+        display_cols = [
+            c
+            for c in [
+                "Rank",
+                "Net",
+                "Team",
+                "Conference",
+                "Conf_Strength",
+                "GP",
+                "Win_Pct",
+                "PF",
+                "PA",
+                "Pace",
+                "Avg_Margin",
+                "SOS",
+            ]
+            if c in view.columns
+        ]
+        if view.empty and selected != ALL_CONFERENCES:
+            st.warning(f"No teams found for conference: {selected}")
+        table = view[display_cols] if not view.empty else view
+        st.dataframe(
+            table,
+            use_container_width=True,
+            hide_index=True,
+            column_config=_leaderboard_column_config(display_cols),
+        )
+
+        _render_scatter_section(view, sport.key)
+
+        conf_chart = _conference_strength_chart_df(df)
+        if conf_chart is not None:
+            st.divider()
+            st.markdown(
+                '<p class="nj-section-title">Conference strength</p>'
+                '<p class="nj-section-desc">Average statewide win% by conference.</p>',
+                unsafe_allow_html=True,
+            )
+            _render_conference_strength_chart(conf_chart)
+
+    with players_tab:
+        pass
 
 
 def render_basketball_page() -> None:
