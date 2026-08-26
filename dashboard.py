@@ -14,6 +14,7 @@ import altair as alt
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 FOOTBALL_DATA_CACHE_JSON = SCRIPT_DIR / "football_data_cache.json"
+PLAYER_DATA_CACHE_JSON = SCRIPT_DIR / "player_data_cache.json"
 def _image_path(*candidates: Path) -> Path:
     for path in candidates:
         if path.is_file():
@@ -48,6 +49,7 @@ class SportPageConfig:
     page_path: str
     description: str
     home_image: Path | None = None
+    player_cache_path: Path | None = None
 
 
 BASKETBALL_CONFIG = SportPageConfig(
@@ -57,6 +59,7 @@ BASKETBALL_CONFIG = SportPageConfig(
     page_path="pages/1_Basketball.py",
     description="Statewide Net ratings, conference filters, strength of schedule, and league strength.",
     home_image=BASKETBALL_HOME_IMAGE if BASKETBALL_HOME_IMAGE.is_file() else None,
+    player_cache_path=PLAYER_DATA_CACHE_JSON,
 )
 
 FOOTBALL_CONFIG = SportPageConfig(
@@ -123,6 +126,15 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
         "Opp Opp Win%",
         "Average win% of in-state opponents' opponents.",
     ),
+    "Player": ("Player", "Athlete name from NJ.com roster / player page."),
+    "Class": ("Class", "Grade/class year from the roster."),
+    "Positions": ("Pos", "Listed position(s) from the roster."),
+    "PTS": ("PTS", "Season points total from NJ.com game logs."),
+    "REB": ("REB", "Season rebounds total from NJ.com game logs."),
+    "AST": ("AST", "Season assists total from NJ.com game logs."),
+    "PPG": ("PPG", "Points per game: PTS ÷ GP."),
+    "RPG": ("RPG", "Rebounds per game: REB ÷ GP."),
+    "APG": ("APG", "Assists per game: AST ÷ GP."),
 }
 
 APP_CSS = """
@@ -560,14 +572,16 @@ def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config
         if not meta:
             continue
         label, help_text = meta
-        if col in ("Team", "Conference"):
+        if col in ("Team", "Conference", "Player", "Class", "Positions"):
             configs[col] = st.column_config.TextColumn(label, help=help_text)
         elif col == "Rank":
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
-        elif col in ("PF", "PA", "GP"):
+        elif col in ("PF", "PA", "GP", "PTS", "REB", "AST"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
         elif col in ("Win_Pct", "SOS", "Opp_Win_Pct", "Opp_Opp_Win_Pct", "Net", "Conf_Strength"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.4f")
+        elif col in ("PPG", "RPG", "APG"):
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.1f")
         else:
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.3f")
     return configs
@@ -1057,6 +1071,165 @@ def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame |
     return df, payload.get("last_updated")
 
 
+def load_cached_players(
+    cache_path: Path | None,
+    teams_df: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame | None, str | None]:
+    """Flatten player_data_cache.json into a season-totals leaderboard frame."""
+    if cache_path is None or not cache_path.is_file():
+        return None, None
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None, None
+    players = payload.get("players") or []
+    if not players:
+        return None, payload.get("last_updated")
+
+    rows: list[dict] = []
+    for p in players:
+        if not isinstance(p, dict):
+            continue
+        totals = p.get("Season_Totals") or {}
+        if not isinstance(totals, dict):
+            totals = {}
+        gp = pd.to_numeric(totals.get("GP"), errors="coerce")
+        pts = pd.to_numeric(totals.get("PTS"), errors="coerce")
+        reb = pd.to_numeric(totals.get("REB"), errors="coerce")
+        ast = pd.to_numeric(totals.get("AST"), errors="coerce")
+        row = {
+            "Player": p.get("Name"),
+            "Team": p.get("Team"),
+            "School_Slug": p.get("School_Slug"),
+            "Class": p.get("Class"),
+            "Positions": p.get("Positions"),
+            "GP": int(gp) if pd.notna(gp) else None,
+            "PTS": int(pts) if pd.notna(pts) else None,
+            "REB": int(reb) if pd.notna(reb) else None,
+            "AST": int(ast) if pd.notna(ast) else None,
+        }
+        if pd.notna(gp) and float(gp) > 0:
+            row["PPG"] = round(float(pts) / float(gp), 1) if pd.notna(pts) else None
+            row["RPG"] = round(float(reb) / float(gp), 1) if pd.notna(reb) else None
+            row["APG"] = round(float(ast) / float(gp), 1) if pd.notna(ast) else None
+        else:
+            row["PPG"] = None
+            row["RPG"] = None
+            row["APG"] = None
+        rows.append(row)
+
+    if not rows:
+        return None, payload.get("last_updated")
+
+    pdf = pd.DataFrame(rows)
+    if (
+        teams_df is not None
+        and not teams_df.empty
+        and "School_Slug" in teams_df.columns
+        and "Conference" in teams_df.columns
+    ):
+        conf_map = (
+            teams_df[["School_Slug", "Conference"]]
+            .dropna(subset=["School_Slug"])
+            .drop_duplicates(subset=["School_Slug"])
+        )
+        pdf = pdf.merge(conf_map, on="School_Slug", how="left")
+
+    pdf = pdf.sort_values(
+        by=["PTS", "REB", "AST", "Player"],
+        ascending=[False, False, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
+    pdf.insert(0, "Rank", range(1, len(pdf) + 1))
+    return pdf, payload.get("last_updated")
+
+
+def _filter_players(pdf: pd.DataFrame, conference: str | None) -> pd.DataFrame:
+    if not conference or conference == ALL_CONFERENCES or "Conference" not in pdf.columns:
+        return pdf
+    view = pdf[pdf["Conference"] == conference].copy()
+    if view.empty:
+        return view
+    view = view.sort_values(
+        by=["PTS", "REB", "AST", "Player"],
+        ascending=[False, False, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
+    view["Rank"] = range(1, len(view) + 1)
+    return view
+
+
+def _render_players_section(
+    sport: SportPageConfig,
+    teams_df: pd.DataFrame,
+) -> None:
+    if sport.player_cache_path is None:
+        st.info(f"Player stats are not available for {sport.label} yet.")
+        return
+
+    pdf, _updated = load_cached_players(sport.player_cache_path, teams_df)
+    if pdf is None or pdf.empty:
+        st.info(
+            "No player data found. Run the player scraper from the backend/CLI "
+            "(`py -3 player_scraper.py`) to populate the cache."
+        )
+        return
+
+    if "Conference" in pdf.columns:
+        conferences = sorted(
+            c for c in pdf["Conference"].dropna().astype(str).unique() if c.strip()
+        )
+    else:
+        conferences = []
+
+    filter_col, metric_col = st.columns([3, 1])
+    with filter_col:
+        selected = st.selectbox(
+            "Conference",
+            options=[ALL_CONFERENCES] + conferences,
+            index=0,
+            key=f"player_conference_{sport.key}",
+        )
+    view = _filter_players(pdf, selected)
+    with metric_col:
+        st.metric("Players", len(view))
+
+    st.markdown(
+        '<p class="nj-section-title">Player leaderboard</p>'
+        '<p class="nj-section-desc">Season totals sorted by points (PTS).</p>',
+        unsafe_allow_html=True,
+    )
+
+    display_cols = [
+        c
+        for c in [
+            "Rank",
+            "Player",
+            "Team",
+            "Conference",
+            "Class",
+            "Positions",
+            "GP",
+            "PTS",
+            "REB",
+            "AST",
+            "PPG",
+            "RPG",
+            "APG",
+        ]
+        if c in view.columns
+    ]
+    if view.empty and selected != ALL_CONFERENCES:
+        st.warning(f"No players found for conference: {selected}")
+    table = view[display_cols] if not view.empty else view
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+        column_config=_leaderboard_column_config(display_cols),
+    )
+
+
 def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
     if not conference or conference == ALL_CONFERENCES:
         return df
@@ -1174,7 +1347,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
             _render_conference_strength_chart(conf_chart)
 
     with players_tab:
-        pass
+        _render_players_section(sport, df)
 
 
 def render_basketball_page() -> None:
