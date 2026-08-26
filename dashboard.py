@@ -5,11 +5,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
+import base64
 
 import pandas as pd
 import streamlit as st
 import altair as alt
+from PIL import Image
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
@@ -167,7 +171,7 @@ APP_CSS = """
 
     .block-container {
         max-width: 1200px;
-        padding-top: 2.5rem;
+        padding-top: 3.75rem;
         padding-bottom: 3rem;
     }
 
@@ -430,6 +434,43 @@ APP_CSS = """
         border-bottom: 1px solid var(--nj-border);
     }
 
+    .nj-sport-hero {
+        display: flex;
+        align-items: stretch;
+        gap: 1.25rem;
+        margin-top: 0.75rem;
+        margin-bottom: 1.75rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--nj-border);
+    }
+
+    .nj-sport-hero .nj-eyebrow {
+        margin-top: 0.35rem;
+    }
+
+    .nj-sport-hero .nj-page-header {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+
+    .nj-sport-hero-logo-wrap {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: stretch;
+        max-width: 12rem;
+    }
+
+    .nj-sport-hero-logo {
+        height: 100%;
+        width: auto;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: left center;
+    }
+
     .nj-page-header h1 {
         margin: 0.5rem 0 0.5rem;
         font-size: 2rem;
@@ -478,14 +519,9 @@ APP_CSS = """
         color: var(--nj-text-faint);
     }
 
-    [data-testid="stSidebar"] [data-testid="stImage"] {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 0.75rem;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stImage"] img {
-        max-width: 140px;
+    [data-testid="stSidebar"] .nj-logo-img {
+        display: block;
+        margin: 0 auto 0.75rem;
     }
 </style>
 """
@@ -497,9 +533,43 @@ def inject_app_styles() -> None:
     st.markdown(APP_CSS, unsafe_allow_html=True)
 
 
+@lru_cache(maxsize=4)
+def _logo_cropped_sides(path: str, side_crop: float = 0.2) -> Image.Image:
+    """Crop `side_crop` fraction from left and right (keep center width)."""
+    img = Image.open(path).convert("RGBA")
+    w, h = img.size
+    left = int(round(w * side_crop))
+    right = int(round(w * (1.0 - side_crop)))
+    if right <= left:
+        return img
+    return img.crop((left, 0, right, h))
+
+
+def _logo_png_data_uri() -> str | None:
+    if not LOGO_PATH.is_file():
+        return None
+    img = _logo_cropped_sides(str(LOGO_PATH), 0.2)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 def _render_logo(*, width: int | None = None, use_container_width: bool = False) -> None:
-    if LOGO_PATH.is_file():
-        st.image(str(LOGO_PATH), width=width, use_container_width=use_container_width)
+    """Render the cropped brand mark at an exact CSS pixel width."""
+    del use_container_width  # HTML path always uses explicit width
+    data_uri = _logo_png_data_uri()
+    if not data_uri:
+        return
+    img = _logo_cropped_sides(str(LOGO_PATH), 0.2)
+    display_w = int(width) if width and width > 0 else img.width
+    display_h = max(1, int(round(img.height * (display_w / img.width))))
+    st.markdown(
+        f'<img class="nj-logo-img" src="{data_uri}" '
+        f'width="{display_w}" height="{display_h}" '
+        f'style="width:{display_w}px;height:auto;max-width:none;" '
+        f'alt="NJ Stat Cast" />',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_wordmark(*, use_container_width: bool = True) -> None:
@@ -1240,12 +1310,18 @@ def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
 
 
 def render_sport_page(sport: SportPageConfig) -> None:
-    logo_col, header_col = st.columns([1, 5], gap="medium")
-    with logo_col:
-        _render_logo(width=96)
-    with header_col:
-        st.markdown(
-            f"""
+    logo_uri = _logo_png_data_uri()
+    logo_html = (
+        f'<div class="nj-sport-hero-logo-wrap">'
+        f'<img class="nj-sport-hero-logo" src="{logo_uri}" alt="NJ Stat Cast" />'
+        f"</div>"
+        if logo_uri
+        else ""
+    )
+    st.markdown(
+        f"""
+        <div class="nj-sport-hero">
+            {logo_html}
             <div class="nj-page-header">
                 <p class="nj-eyebrow">{sport.label}</p>
                 <h1>Statewide Rankings</h1>
@@ -1253,9 +1329,10 @@ def render_sport_page(sport: SportPageConfig) -> None:
                     Net rating leaderboard with in-state schedule adjustments and head-to-head tiebreakers.
                 </p>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     with st.expander("How rankings are calculated"):
         st.markdown(
@@ -1266,7 +1343,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
         )
 
     with st.sidebar:
-        _render_logo(width=120)
+        _render_logo(width=83)
         df_preview, last_updated = load_cached_data(sport.cache_path)
         st.markdown(
             f'<div class="nj-sidebar-meta"><strong>Last updated</strong>{_format_timestamp(last_updated)}</div>',
