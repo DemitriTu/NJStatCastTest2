@@ -192,25 +192,35 @@ APP_CSS = """
         font-weight: 600;
     }
 
-    [data-testid="stSidebar"] {
-        background: var(--nj-surface);
-        border-right: 1px solid var(--nj-border);
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"],
+    section[data-testid="stSidebar"] {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        transform: translateX(-100%) !important;
     }
 
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stCaption {
-        color: var(--nj-text-muted) !important;
-    }
-
+    [data-testid="stSidebar"] .stCaption,
     [data-testid="stSidebar"] h1,
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3 {
-        color: var(--nj-text) !important;
-        font-size: 0.875rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        display: none !important;
+    }
+
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarCollapsedControl"],
+    button[kind="headerNoPadding"] {
+        display: none !important;
+    }
+
+    section[data-testid="stSidebar"] {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
     }
 
     #MainMenu, footer {
@@ -499,29 +509,10 @@ APP_CSS = """
         color: var(--nj-text-faint) !important;
     }
 
-    .nj-sidebar-meta {
-        margin: 0 0 1rem;
-        padding: 0.75rem 0.875rem;
-        background: var(--nj-surface-raised);
-        border: 1px solid var(--nj-border);
-        border-radius: var(--nj-radius-sm);
+    .nj-last-updated {
+        margin: -0.75rem 0 1.25rem;
         font-size: 0.8125rem;
-        color: var(--nj-text-muted) !important;
-    }
-
-    .nj-sidebar-meta strong {
-        display: block;
-        margin-bottom: 0.15rem;
-        font-size: 0.6875rem;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--nj-text-faint);
-    }
-
-    [data-testid="stSidebar"] .nj-logo-img {
-        display: block;
-        margin: 0 auto 0.75rem;
+        color: var(--nj-text-faint) !important;
     }
 </style>
 """
@@ -552,24 +543,6 @@ def _logo_png_data_uri() -> str | None:
     buf = BytesIO()
     img.save(buf, format="PNG")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-
-
-def _render_logo(*, width: int | None = None, use_container_width: bool = False) -> None:
-    """Render the cropped brand mark at an exact CSS pixel width."""
-    del use_container_width  # HTML path always uses explicit width
-    data_uri = _logo_png_data_uri()
-    if not data_uri:
-        return
-    img = _logo_cropped_sides(str(LOGO_PATH), 0.2)
-    display_w = int(width) if width and width > 0 else img.width
-    display_h = max(1, int(round(img.height * (display_w / img.width))))
-    st.markdown(
-        f'<img class="nj-logo-img" src="{data_uri}" '
-        f'width="{display_w}" height="{display_h}" '
-        f'style="width:{display_w}px;height:auto;max-width:none;" '
-        f'alt="NJ Stat Cast" />',
-        unsafe_allow_html=True,
-    )
 
 
 def _render_wordmark(*, use_container_width: bool = True) -> None:
@@ -1334,6 +1307,12 @@ def render_sport_page(sport: SportPageConfig) -> None:
         unsafe_allow_html=True,
     )
 
+    df, last_updated = load_cached_data(sport.cache_path)
+    st.markdown(
+        f'<p class="nj-last-updated">Last updated {_format_timestamp(last_updated)}</p>',
+        unsafe_allow_html=True,
+    )
+
     with st.expander("How rankings are calculated"):
         st.markdown(
             "Rankings use **Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin)**, "
@@ -1342,15 +1321,6 @@ def render_sport_page(sport: SportPageConfig) -> None:
             "schedule data exists. Adjacent teams may swap when the lower-Net team won the head-to-head series."
         )
 
-    with st.sidebar:
-        _render_logo(width=83)
-        df_preview, last_updated = load_cached_data(sport.cache_path)
-        st.markdown(
-            f'<div class="nj-sidebar-meta"><strong>Last updated</strong>{_format_timestamp(last_updated)}</div>',
-            unsafe_allow_html=True,
-        )
-
-    df = df_preview
     if df is None:
         st.info("No data found. Run the scraper from the backend/CLI to populate the cache.")
         return
