@@ -919,8 +919,17 @@ def main() -> int:
     args = parser.parse_args()
 
     sport = get_sport_settings(args.sport)
-    cache_out = args.cache_out or (SCRIPT_DIR / sport.cache_filename)
+    season = str(args.season).strip()
+    versioned_cache = SCRIPT_DIR / (
+        f"data_cache_{season}.json"
+        if sport.key == "basketball"
+        else f"football_data_cache_{season}.json"
+    )
+    cache_out = args.cache_out or versioned_cache
     cache_in = args.cache_in or cache_out
+    # Prefer season-named cache; fall back to legacy unversioned file for sos-only.
+    if args.sos_only and not cache_in.is_file() and (SCRIPT_DIR / sport.cache_filename).is_file():
+        cache_in = SCRIPT_DIR / sport.cache_filename
     json_out = args.json_out or (SCRIPT_DIR / sport.json_filename)
     csv_out = args.csv_out or (SCRIPT_DIR / sport.csv_filename)
 

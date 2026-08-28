@@ -506,14 +506,14 @@ def main() -> int:
     parser.add_argument(
         "--teams-cache",
         type=Path,
-        default=DEFAULT_TEAMS_CACHE,
-        help=f"Team standings cache with School_Slug values (default: {DEFAULT_TEAMS_CACHE.name}).",
+        default=None,
+        help="Team standings cache with School_Slug values (default: season-named or legacy cache).",
     )
     parser.add_argument(
         "--cache-out",
         type=Path,
-        default=DEFAULT_PLAYER_CACHE,
-        help=f"Output player cache path (default: {DEFAULT_PLAYER_CACHE.name}).",
+        default=None,
+        help="Output player cache path (default: player_data_cache_{season}.json).",
     )
     parser.add_argument(
         "--workers",
@@ -538,8 +538,16 @@ def main() -> int:
     timeout_ms = max(5000, args.timeout_ms)
     workers = max(1, args.workers)
 
+    versioned_teams = SCRIPT_DIR / f"data_cache_{season}.json"
+    teams_cache = args.teams_cache or (
+        versioned_teams
+        if versioned_teams.is_file()
+        else (DEFAULT_TEAMS_CACHE if season == DEFAULT_SEASON else versioned_teams)
+    )
+    cache_out = args.cache_out or (SCRIPT_DIR / f"player_data_cache_{season}.json")
+
     try:
-        teams = resolve_teams(teams_cache=args.teams_cache, school_slug=args.school_slug)
+        teams = resolve_teams(teams_cache=teams_cache, school_slug=args.school_slug)
     except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
         print(f"player_scraper: {e}", file=sys.stderr)
         return 1
@@ -547,12 +555,12 @@ def main() -> int:
     players = scrape_all_players(
         season=season,
         teams=teams,
-        cache_out=args.cache_out,
+        cache_out=cache_out,
         workers=workers,
         timeout_ms=timeout_ms,
         resume=args.resume,
     )
-    print(f"Saved {len(players)} players to {args.cache_out}")
+    print(f"Saved {len(players)} players to {cache_out}")
     return 0
 
 

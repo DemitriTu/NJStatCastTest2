@@ -44,6 +44,15 @@ BASKETBALL_HOME_IMAGE = _image_path(
 )
 PAGE_ICON = str(TAB_ICON_PATH) if TAB_ICON_PATH.is_file() else "📊"
 
+# Seasons available in the UI (oldest → newest). Current cache maps to 2025-2026.
+AVAILABLE_SEASONS: tuple[str, ...] = (
+    "2023-2024",
+    "2024-2025",
+    "2025-2026",
+    "2026-2027",
+)
+DEFAULT_UI_SEASON = "2025-2026"
+
 
 @dataclass(frozen=True)
 class SportPageConfig:
@@ -84,6 +93,43 @@ NET_WEIGHTS = {
     "SOS": NET_WEIGHT_SOS,
     "Avg_Margin": NET_WEIGHT_MARGIN,
 }
+
+
+def _season_key(season: str) -> str:
+    return season.replace("-", "_")
+
+
+def team_cache_path_for_season(sport: SportPageConfig, season: str) -> Path:
+    """Resolve team rankings cache for a season (legacy unversioned file for current)."""
+    if sport.key == "basketball":
+        versioned = SCRIPT_DIR / f"data_cache_{season}.json"
+        legacy = DATA_CACHE_JSON
+    elif sport.key == "football":
+        versioned = SCRIPT_DIR / f"football_data_cache_{season}.json"
+        legacy = FOOTBALL_DATA_CACHE_JSON
+    else:
+        return sport.cache_path
+
+    if versioned.is_file():
+        return versioned
+    if season == DEFAULT_UI_SEASON and legacy.is_file():
+        return legacy
+    return versioned
+
+
+def player_cache_path_for_season(sport: SportPageConfig, season: str) -> Path | None:
+    """Resolve player stats cache for a season; None if sport has no players."""
+    if sport.key != "basketball" and sport.player_cache_path is None:
+        return None
+    versioned = SCRIPT_DIR / f"player_data_cache_{season}.json"
+    if versioned.is_file():
+        return versioned
+    if season == DEFAULT_UI_SEASON and PLAYER_DATA_CACHE_JSON.is_file():
+        return PLAYER_DATA_CACHE_JSON
+    if sport.key == "basketball":
+        return versioned
+    return None
+
 
 # (display label, header tooltip) for st.dataframe column_config
 COLUMN_HELP: dict[str, tuple[str, str]] = {
@@ -1205,19 +1251,23 @@ def _filter_players(pdf: pd.DataFrame, conference: str | None) -> pd.DataFrame:
 def _render_players_section(
     sport: SportPageConfig,
     teams_df: pd.DataFrame,
+    *,
+    season: str,
+    player_cache: Path | None,
 ) -> None:
-    if sport.player_cache_path is None:
+    if player_cache is None and sport.player_cache_path is None and sport.key != "basketball":
         st.info(f"Player stats are not available for {sport.label} yet.")
         return
 
-    pdf, _updated = load_cached_players(sport.player_cache_path, teams_df)
+    pdf, _updated = load_cached_players(player_cache, teams_df)
     if pdf is None or pdf.empty:
         st.info(
-            "No player data found. Run the player scraper from the backend/CLI "
-            "(`py -3 player_scraper.py`) to populate the cache."
+            f"No player data found for {season}. Run the player scraper with "
+            f"`py -3 player_scraper.py --season {season}` to populate the cache."
         )
         return
 
+    season_suffix = _season_key(season)
     if "Conference" in pdf.columns:
         conferences = sorted(
             c for c in pdf["Conference"].dropna().astype(str).unique() if c.strip()
@@ -1231,7 +1281,7 @@ def _render_players_section(
             "Conference",
             options=[ALL_CONFERENCES] + conferences,
             index=0,
-            key=f"player_conference_{sport.key}",
+            key=f"player_conference_{sport.key}_{season_suffix}",
         )
     view = _filter_players(pdf, selected)
     with metric_col:
@@ -1307,7 +1357,23 @@ def render_sport_page(sport: SportPageConfig) -> None:
         unsafe_allow_html=True,
     )
 
-    df, last_updated = load_cached_data(sport.cache_path)
+    default_idx = (
+        AVAILABLE_SEASONS.index(DEFAULT_UI_SEASON)
+        if DEFAULT_UI_SEASON in AVAILABLE_SEASONS
+        else len(AVAILABLE_SEASONS) - 2
+    )
+    season = st.selectbox(
+        "Season",
+        options=list(AVAILABLE_SEASONS),
+        index=default_idx,
+        key=f"season_{sport.key}",
+        help="Choose a season. Scraped data loads when a cache file exists for that year.",
+    )
+    season_suffix = _season_key(season)
+    teams_cache = team_cache_path_for_season(sport, season)
+    players_cache = player_cache_path_for_season(sport, season)
+
+    df, last_updated = load_cached_data(teams_cache)
     st.markdown(
         f'<p class="nj-last-updated">Last updated {_format_timestamp(last_updated)}</p>',
         unsafe_allow_html=True,
@@ -1322,7 +1388,11 @@ def render_sport_page(sport: SportPageConfig) -> None:
         )
 
     if df is None:
-        st.info("No data found. Run the scraper from the backend/CLI to populate the cache.")
+        st.info(
+            f"No {sport.label.lower()} data found for {season}. "
+            f"Run `py -3 scraper.py --sport {sport.key} --season {season}` "
+            "to populate the cache."
+        )
         return
 
     teams_tab, players_tab = st.tabs(["Teams", "Players"])
@@ -1341,7 +1411,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
                 "Conference",
                 options=[ALL_CONFERENCES] + conferences,
                 index=0,
-                key=f"conference_{sport.key}",
+                key=f"conference_{sport.key}_{season_suffix}",
             )
         with metric_col:
             view = _filter_and_rank(df, selected)
@@ -1381,7 +1451,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
             column_config=_leaderboard_column_config(display_cols),
         )
 
-        _render_scatter_section(view, sport.key)
+        _render_scatter_section(view, f"{sport.key}_{season_suffix}")
 
         conf_chart = _conference_strength_chart_df(df)
         if conf_chart is not None:
@@ -1394,7 +1464,12 @@ def render_sport_page(sport: SportPageConfig) -> None:
             _render_conference_strength_chart(conf_chart)
 
     with players_tab:
-        _render_players_section(sport, df)
+        _render_players_section(
+            sport,
+            df,
+            season=season,
+            player_cache=players_cache,
+        )
 
 
 def render_basketball_page() -> None:
