@@ -804,14 +804,17 @@ def _apply_nj_only_stats(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _add_pace(df: pd.DataFrame) -> pd.DataFrame:
-    """Pace = average of PF/GP and PA/GP (points per game for and against)."""
+    """Pace = average of PF/GP and PA/GP; also expose PF_PG and PA_PG for charts."""
     out = df.copy()
     if not {"PF", "PA", "GP"}.issubset(out.columns):
         return out
     gp = pd.to_numeric(out["GP"], errors="coerce")
     pf = pd.to_numeric(out["PF"], errors="coerce")
     pa = pd.to_numeric(out["PA"], errors="coerce")
-    out["Pace"] = ((pf + pa) / (2 * gp)).where(gp.gt(0)).round(1)
+    valid_gp = gp.gt(0)
+    out["PF_PG"] = (pf / gp).where(valid_gp).round(1)
+    out["PA_PG"] = (pa / gp).where(valid_gp).round(1)
+    out["Pace"] = ((pf + pa) / (2 * gp)).where(valid_gp).round(1)
     return out
 
 
@@ -964,6 +967,32 @@ SCATTER_PLOTS: tuple[dict[str, str | float], ...] = (
         "x_format": ".4f",
         "y_format": ".4f",
         "key": "sos_win",
+    },
+    {
+        "label": "Net vs PF/G",
+        "desc": "Points scored per game vs Net rating for teams in the current view.",
+        "x_col": "PF_PG",
+        "y_col": "Net",
+        "x_label": "PF/G",
+        "y_label": "Net",
+        "x_pad": 5,
+        "y_pad": 0.1,
+        "x_format": ".1f",
+        "y_format": ".4f",
+        "key": "net_pf",
+    },
+    {
+        "label": "Net vs PA/G",
+        "desc": "Points allowed per game vs Net rating for teams in the current view.",
+        "x_col": "PA_PG",
+        "y_col": "Net",
+        "x_label": "PA/G",
+        "y_label": "Net",
+        "x_pad": 5,
+        "y_pad": 0.1,
+        "x_format": ".1f",
+        "y_format": ".4f",
+        "key": "net_pa",
     },
 )
 
