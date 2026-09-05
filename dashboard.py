@@ -20,6 +20,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_CACHE_JSON = SCRIPT_DIR / "data_cache.json"
 FOOTBALL_DATA_CACHE_JSON = SCRIPT_DIR / "football_data_cache.json"
 PLAYER_DATA_CACHE_JSON = SCRIPT_DIR / "player_data_cache.json"
+FOOTBALL_PLAYER_DATA_CACHE_JSON = SCRIPT_DIR / "football_player_data_cache.json"
 def _image_path(*candidates: Path) -> Path:
     for path in candidates:
         if path.is_file():
@@ -45,14 +46,14 @@ BASKETBALL_HOME_IMAGE = _image_path(
 )
 PAGE_ICON = str(TAB_ICON_PATH) if TAB_ICON_PATH.is_file() else "📊"
 
-# Seasons available in the UI (oldest → newest). Current cache maps to 2025-2026.
+# Seasons available in the UI (oldest → newest).
 AVAILABLE_SEASONS: tuple[str, ...] = (
     "2023-2024",
     "2024-2025",
     "2025-2026",
     "2026-2027",
 )
-DEFAULT_UI_SEASON = "2025-2026"
+DEFAULT_UI_SEASON = "2026-2027"
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,67 @@ FOOTBALL_CONFIG = SportPageConfig(
     cache_path=FOOTBALL_DATA_CACHE_JSON,
     page_path="pages/2_Football.py",
     description="Statewide Net ratings, conference filters, strength of schedule, and league strength.",
+    player_cache_path=FOOTBALL_PLAYER_DATA_CACHE_JSON,
 )
+
+ALL_POSITIONS = "All positions"
+FOOTBALL_POSITION_OPTIONS: tuple[str, ...] = (
+    ALL_POSITIONS,
+    "QB",
+    "RB",
+    "WR / TE",
+    "OL",
+    "DL",
+    "LB",
+    "DB",
+    "Specialists",
+    "Other",
+)
+FOOTBALL_STAT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "passing": ("COMP", "ATT", "YDS", "TD", "INT", "LNG"),
+    "rushing": ("ATT", "YDS", "TD", "LNG"),
+    "receiving": ("REC", "YDS", "TD", "LNG"),
+    "defense": ("S", "TFL", "T_SOLO", "T_AST", "T_TOT", "FF", "FR", "INT"),
+    "kicking": ("FGM", "FGA", "FG_LNG", "XPM", "XPA", "2PT"),
+    "punting": ("PUNTS", "YDS", "LNG", "IN_20"),
+    "specialists": ("FGM", "FGA", "FG_LNG", "XPM", "XPA", "2PT", "PUNTS", "YDS", "LNG", "IN_20"),
+}
+FOOTBALL_SPECIALIST_STAT_CATEGORIES: frozenset[str] = frozenset({"kicking", "punting"})
+FOOTBALL_SPECIALTY_LABELS: dict[str, str] = {
+    "kicking": "Kicking",
+    "punting": "Punting",
+}
+FOOTBALL_STAT_CATEGORY_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("Passing", "passing"),
+    ("Rushing", "rushing"),
+    ("Receiving", "receiving"),
+    ("Defense", "defense"),
+    ("Specialists", "specialists"),
+)
+FOOTBALL_POSITION_CODE_TO_GROUP: dict[str, str] = {
+    "QB": "QB",
+    "RB": "RB",
+    "FB": "RB",
+    "WR": "WR / TE",
+    "TE": "WR / TE",
+    "OL": "OL",
+    "OT": "OL",
+    "OG": "OL",
+    "C": "OL",
+    "DL": "DL",
+    "DE": "DL",
+    "DT": "DL",
+    "NG": "DL",
+    "LB": "LB",
+    "DB": "DB",
+    "CB": "DB",
+    "S": "DB",
+    "FS": "DB",
+    "SS": "DB",
+    "K": "Specialists",
+    "P": "Specialists",
+    "LS": "Specialists",
+}
 
 ALL_CONFERENCES = "All conferences"
 FULL_SEASON = "Full season"
@@ -485,16 +546,19 @@ def team_cache_path_for_season(sport: SportPageConfig, season: str) -> Path:
 
 def player_cache_path_for_season(sport: SportPageConfig, season: str) -> Path | None:
     """Resolve player stats cache for a season; None if sport has no players."""
-    if sport.key != "basketball" and sport.player_cache_path is None:
+    if sport.player_cache_path is None:
         return None
-    versioned = SCRIPT_DIR / f"player_data_cache_{season}.json"
+    if sport.key == "football":
+        versioned = SCRIPT_DIR / f"football_player_data_cache_{season}.json"
+        legacy = FOOTBALL_PLAYER_DATA_CACHE_JSON
+    else:
+        versioned = SCRIPT_DIR / f"player_data_cache_{season}.json"
+        legacy = PLAYER_DATA_CACHE_JSON
     if versioned.is_file():
         return versioned
-    if season == DEFAULT_UI_SEASON and PLAYER_DATA_CACHE_JSON.is_file():
-        return PLAYER_DATA_CACHE_JSON
-    if sport.key == "basketball":
-        return versioned
-    return None
+    if season == DEFAULT_UI_SEASON and legacy.is_file():
+        return legacy
+    return versioned
 
 
 # (display label, header tooltip) for st.dataframe column_config
@@ -551,6 +615,32 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
     "PPG": ("PPG", "Points per game: PTS ÷ GP."),
     "RPG": ("RPG", "Rebounds per game: REB ÷ GP."),
     "APG": ("APG", "Assists per game: AST ÷ GP."),
+    "Number": ("#", "Jersey number from the roster."),
+    "Stat_Category": ("Category", "Stat table from NJ.com (passing, rushing, receiving, defense)."),
+    "Position_Group": ("Pos Group", "Primary position group derived from roster positions."),
+    "COMP": ("COMP", "Pass completions."),
+    "ATT": ("ATT", "Pass or rush attempts."),
+    "YDS": ("YDS", "Yards gained."),
+    "TD": ("TD", "Touchdowns."),
+    "INT": ("INT", "Interceptions thrown (passing) or caught (defense)."),
+    "LNG": ("LNG", "Longest play."),
+    "REC": ("REC", "Receptions."),
+    "S": ("S", "Sacks."),
+    "TFL": ("TFL", "Tackles for loss."),
+    "T_SOLO": ("T/SOLO", "Solo tackles."),
+    "T_AST": ("T/AST", "Assisted tackles."),
+    "T_TOT": ("T/TOT", "Total tackles."),
+    "FF": ("FF", "Forced fumbles."),
+    "FR": ("FR", "Fumble recoveries."),
+    "Specialty": ("Specialty", "Kicking or punting stat line from NJ.com."),
+    "FGM": ("FGM", "Field goals made."),
+    "FGA": ("FGA", "Field goals attempted."),
+    "FG_LNG": ("FG LNG", "Longest field goal made (yards)."),
+    "XPM": ("XPM", "Extra points made."),
+    "XPA": ("XPA", "Extra points attempted."),
+    "2PT": ("2PT", "Two-point conversions made."),
+    "PUNTS": ("Punts", "Punts."),
+    "IN_20": ("IN 20", "Punts downed inside the 20."),
 }
 
 APP_CSS = """
@@ -1027,12 +1117,17 @@ def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config
         if not meta:
             continue
         label, help_text = meta
-        if col in ("Team", "Conference", "Player", "Class", "Positions"):
+        if col in ("Team", "Conference", "Player", "Class", "Positions", "Stat_Category", "Position_Group", "Specialty"):
             configs[col] = st.column_config.TextColumn(label, help=help_text)
         elif col == "Rank":
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
-        elif col in ("PF", "PA", "GP", "PTS", "REB", "AST"):
+        elif col in (
+            "PF", "PA", "GP", "PTS", "REB", "AST", "COMP", "ATT", "YDS", "TD", "INT", "LNG", "REC",
+            "T_SOLO", "T_AST", "T_TOT", "FF", "FR", "FGM", "FGA", "FG_LNG", "XPM", "XPA", "2PT", "PUNTS", "IN_20",
+        ):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
+        elif col in ("S", "TFL"):
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.1f")
         elif col in ("Win_Pct", "SOS", "Opp_Win_Pct", "Opp_Opp_Win_Pct", "Net", "Conf_Strength"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.4f")
         elif col in ("PPG", "RPG", "APG"):
@@ -1672,6 +1767,359 @@ def _filter_players(pdf: pd.DataFrame, conference: str | None) -> pd.DataFrame:
     return view
 
 
+def _football_position_groups(positions: str | None, fallback: str | None = None) -> set[str]:
+    """Map roster position codes to all applicable UI position groups."""
+    if not positions or not str(positions).strip():
+        return {fallback or "Other"}
+    codes = {c.strip().upper() for c in re.split(r"[,/]", str(positions)) if c.strip()}
+    groups = {
+        FOOTBALL_POSITION_CODE_TO_GROUP.get(code, "Other")
+        for code in codes
+    }
+    if groups == {"Other"} and fallback:
+        groups.add(fallback)
+    return groups or {fallback or "Other"}
+
+
+def _player_matches_football_position(
+    positions: str | None,
+    position_group: str,
+    *,
+    fallback_group: str | None = None,
+) -> bool:
+    if position_group == ALL_POSITIONS:
+        return True
+    return position_group in _football_position_groups(positions, fallback_group)
+
+
+def _aggregate_football_player_games(
+    games: list[dict],
+    stat_cols: tuple[str, ...],
+) -> dict[str, int | float | None] | None:
+    if not games:
+        return None
+    totals: dict[str, float] = {col: 0.0 for col in stat_cols}
+    has_value = {col: False for col in stat_cols}
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        for col in stat_cols:
+            val = game.get(col)
+            if isinstance(val, bool) or val is None:
+                continue
+            num = pd.to_numeric(val, errors="coerce")
+            if pd.isna(num):
+                continue
+            totals[col] += float(num)
+            has_value[col] = True
+    if not any(has_value.values()):
+        return None
+    out: dict[str, int | float | None] = {}
+    for col in stat_cols:
+        if not has_value[col]:
+            out[col] = None
+        elif col in ("S", "TFL"):
+            out[col] = totals[col]
+        elif float(totals[col]).is_integer():
+            out[col] = int(totals[col])
+        else:
+            out[col] = totals[col]
+    return out
+
+
+def _football_stat_cols_for_record(stat_category: str, player_category: str) -> tuple[str, ...]:
+    if stat_category == "specialists":
+        return FOOTBALL_STAT_COLUMNS.get(player_category, ())
+    return FOOTBALL_STAT_COLUMNS.get(stat_category, ())
+
+
+def _football_primary_sort_key(row: pd.Series) -> tuple[float, float, float, str]:
+    category = str(row.get("Stat_Category") or "")
+    if category == "passing":
+        return (
+            float(row.get("YDS") or 0),
+            float(row.get("TD") or 0),
+            float(row.get("COMP") or 0),
+            str(row.get("Player") or ""),
+        )
+    if category == "rushing":
+        return (
+            float(row.get("YDS") or 0),
+            float(row.get("TD") or 0),
+            float(row.get("ATT") or 0),
+            str(row.get("Player") or ""),
+        )
+    if category == "receiving":
+        return (
+            float(row.get("YDS") or 0),
+            float(row.get("TD") or 0),
+            float(row.get("REC") or 0),
+            str(row.get("Player") or ""),
+        )
+    if category == "defense":
+        return (
+            float(row.get("T_TOT") or 0),
+            float(row.get("INT") or 0),
+            float(row.get("S") or 0),
+            str(row.get("Player") or ""),
+        )
+    if category == "kicking":
+        return (
+            float(row.get("FGM") or 0),
+            float(row.get("FGA") or 0),
+            float(row.get("XPM") or 0),
+            str(row.get("Player") or ""),
+        )
+    if category == "punting":
+        return (
+            float(row.get("PUNTS") or 0),
+            float(row.get("YDS") or 0),
+            float(row.get("LNG") or 0),
+            str(row.get("Player") or ""),
+        )
+    if category == "kicking":
+        return (
+            float(row.get("FGM") or 0),
+            float(row.get("FGA") or 0),
+            float(row.get("XPM") or 0),
+            str(row.get("Player") or ""),
+        )
+    return (0.0, 0.0, 0.0, str(row.get("Player") or ""))
+
+
+def _football_players_frame_from_records(
+    players: list[dict],
+    teams_df: pd.DataFrame | None = None,
+    *,
+    stat_category: str,
+    week_key: str | None = None,
+) -> pd.DataFrame | None:
+    if not players:
+        return None
+
+    if stat_category == "specialists":
+        categories_to_include = FOOTBALL_SPECIALIST_STAT_CATEGORIES
+        display_stat_cols = FOOTBALL_STAT_COLUMNS["specialists"]
+    else:
+        categories_to_include = {stat_category}
+        display_stat_cols = FOOTBALL_STAT_COLUMNS.get(stat_category, ())
+
+    rows: list[dict] = []
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        player_category = str(player.get("Stat_Category") or "")
+        if player_category not in categories_to_include:
+            continue
+
+        record_stat_cols = _football_stat_cols_for_record(stat_category, player_category)
+        if week_key:
+            games = _filter_games_by_week(
+                player.get("Games") if isinstance(player.get("Games"), list) else [],
+                week_key,
+            )
+            stats = _aggregate_football_player_games(games, record_stat_cols)
+            if stats is None:
+                continue
+        else:
+            stats = player.get("Stats") if isinstance(player.get("Stats"), dict) else {}
+
+        row: dict[str, object] = {
+            "Player": player.get("Name"),
+            "Number": player.get("Number"),
+            "Team": player.get("Team"),
+            "School_Slug": player.get("School_Slug"),
+            "Class": player.get("Class"),
+            "Positions": player.get("Positions"),
+            "Position_Group": player.get("Position_Group"),
+            "Stat_Category": player_category,
+        }
+        if stat_category == "specialists":
+            row["Specialty"] = FOOTBALL_SPECIALTY_LABELS.get(
+                player_category, player_category.title()
+            )
+        for col in display_stat_cols:
+            row[col] = stats.get(col) if isinstance(stats, dict) else None
+        rows.append(row)
+
+    if not rows:
+        return None
+
+    pdf = pd.DataFrame(rows)
+    if (
+        teams_df is not None
+        and not teams_df.empty
+        and "School_Slug" in teams_df.columns
+        and "Conference" in teams_df.columns
+    ):
+        conf_map = (
+            teams_df[["School_Slug", "Conference"]]
+            .dropna(subset=["School_Slug"])
+            .drop_duplicates(subset=["School_Slug"])
+        )
+        pdf = pdf.merge(conf_map, on="School_Slug", how="left")
+
+    sort_keys = pdf.apply(_football_primary_sort_key, axis=1, result_type="expand")
+    pdf = pdf.assign(_s0=sort_keys[0], _s1=sort_keys[1], _s2=sort_keys[2], _s3=sort_keys[3])
+    pdf = pdf.sort_values(
+        by=["_s0", "_s1", "_s2", "_s3"],
+        ascending=[False, False, False, True],
+    ).drop(columns=["_s0", "_s1", "_s2", "_s3"]).reset_index(drop=True)
+    pdf.insert(0, "Rank", range(1, len(pdf) + 1))
+    return pdf
+
+
+def _filter_football_players(
+    pdf: pd.DataFrame,
+    conference: str | None,
+    position_group: str,
+) -> pd.DataFrame:
+    view = pdf
+    if conference and conference != ALL_CONFERENCES and "Conference" in view.columns:
+        view = view[view["Conference"] == conference].copy()
+    if view.empty:
+        return view
+    if position_group != ALL_POSITIONS:
+        mask = view.apply(
+            lambda row: _player_matches_football_position(
+                row.get("Positions"),
+                position_group,
+                fallback_group=str(row.get("Position_Group") or "Other"),
+            ),
+            axis=1,
+        )
+        view = view[mask].copy()
+    if view.empty:
+        return view
+
+    sort_keys = view.apply(_football_primary_sort_key, axis=1, result_type="expand")
+    view = view.assign(_s0=sort_keys[0], _s1=sort_keys[1], _s2=sort_keys[2], _s3=sort_keys[3])
+    view = view.sort_values(
+        by=["_s0", "_s1", "_s2", "_s3"],
+        ascending=[False, False, False, True],
+    ).drop(columns=["_s0", "_s1", "_s2", "_s3"]).reset_index(drop=True)
+    view["Rank"] = range(1, len(view) + 1)
+    return view
+
+
+def _football_display_columns(stat_category: str) -> list[str]:
+    base = ["Rank", "Player", "Number", "Team", "Conference", "Class", "Positions"]
+    if stat_category == "specialists":
+        return base + ["Specialty"] + list(FOOTBALL_STAT_COLUMNS["specialists"])
+    stat_cols = list(FOOTBALL_STAT_COLUMNS.get(stat_category, ()))
+    return base + stat_cols
+
+
+def _render_football_players_section(
+    sport: SportPageConfig,
+    teams_df: pd.DataFrame,
+    *,
+    season: str,
+    player_cache: Path | None,
+    annotated_players: list[dict] | None = None,
+) -> None:
+    players = annotated_players
+    last_updated = None
+    if players is None:
+        players, last_updated = load_raw_players(player_cache)
+        players = _annotate_player_games(players) if players else []
+    if not players:
+        st.info(
+            f"No player data found for {season}. Run the football player scraper with "
+            f"`py -3 football_player_scraper.py --season {season}` to populate the cache."
+        )
+        return
+
+    season_suffix = _season_key(season)
+    if "Conference" in teams_df.columns:
+        conferences = sorted(
+            c for c in teams_df["Conference"].dropna().astype(str).unique() if c.strip()
+        )
+    else:
+        conferences = []
+
+    week_labels, week_label_to_key = _week_options_from_players(players)
+
+    filter_col, position_col, stat_col, week_col, metric_col = st.columns([2, 2, 2, 2, 1])
+    with filter_col:
+        selected_conf = st.selectbox(
+            "Conference",
+            options=[ALL_CONFERENCES] + conferences,
+            index=0,
+            key=f"player_conference_{sport.key}_{season_suffix}",
+        )
+    with position_col:
+        selected_pos = st.selectbox(
+            "Position",
+            options=list(FOOTBALL_POSITION_OPTIONS),
+            index=0,
+            key=f"player_position_{sport.key}_{season_suffix}",
+            help="Players with multiple listed positions appear in each matching group.",
+        )
+    with stat_col:
+        stat_labels = [label for label, _ in FOOTBALL_STAT_CATEGORY_OPTIONS]
+        stat_label_to_key = {label: key for label, key in FOOTBALL_STAT_CATEGORY_OPTIONS}
+        selected_stat_label = st.selectbox(
+            "Stat category",
+            options=stat_labels,
+            index=0,
+            key=f"player_stat_category_{sport.key}_{season_suffix}",
+        )
+        selected_stat = stat_label_to_key[selected_stat_label]
+    with week_col:
+        week_key = _week_selectbox(
+            labels=week_labels,
+            label_to_key=week_label_to_key,
+            widget_key=f"player_week_{sport.key}_{season_suffix}",
+        )
+
+    pdf = _football_players_frame_from_records(
+        players,
+        teams_df,
+        stat_category=selected_stat,
+        week_key=week_key,
+    )
+    if pdf is None or pdf.empty:
+        st.info(
+            f"No {selected_stat_label.lower()} stats found for the selected week."
+            if week_key
+            else f"No {selected_stat_label.lower()} stats found for this season."
+        )
+        return
+
+    view = _filter_football_players(pdf, selected_conf, selected_pos)
+    with metric_col:
+        st.metric("Players", len(view))
+
+    pos_desc = (
+        f"{selected_stat_label} leaders"
+        + (f" — {selected_pos}" if selected_pos != ALL_POSITIONS else "")
+        + (
+            ", weekly totals from game logs in the selected week."
+            if week_key
+            else ", season totals from NJ.com."
+        )
+        + " Players with multiple positions appear in each matching group."
+    )
+    st.markdown(
+        f'<p class="nj-section-title">Player leaderboard</p>'
+        f'<p class="nj-section-desc">{pos_desc}</p>',
+        unsafe_allow_html=True,
+    )
+
+    display_cols = [c for c in _football_display_columns(selected_stat) if c in view.columns]
+    if view.empty and selected_conf != ALL_CONFERENCES:
+        st.warning(f"No players found for conference: {selected_conf}")
+    table = view[display_cols] if not view.empty else view
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+        column_config=_leaderboard_column_config(display_cols),
+    )
+    _ = last_updated
+
+
 def _render_players_section(
     sport: SportPageConfig,
     teams_df: pd.DataFrame,
@@ -1680,7 +2128,17 @@ def _render_players_section(
     player_cache: Path | None,
     annotated_players: list[dict] | None = None,
 ) -> None:
-    if player_cache is None and sport.player_cache_path is None and sport.key != "basketball":
+    if sport.key == "football":
+        _render_football_players_section(
+            sport,
+            teams_df,
+            season=season,
+            player_cache=player_cache,
+            annotated_players=annotated_players,
+        )
+        return
+
+    if player_cache is None and sport.player_cache_path is None:
         st.info(f"Player stats are not available for {sport.label} yet.")
         return
 
@@ -1855,8 +2313,12 @@ def render_sport_page(sport: SportPageConfig) -> None:
         return
 
     raw_players, _player_updated = load_raw_players(players_cache)
-    annotated_players = _annotate_player_games(raw_players) if raw_players else []
-    df = _annotate_teams_dataframe_weeks(df, annotated_players)
+    if sport.key == "basketball":
+        annotated_players = _annotate_player_games(raw_players) if raw_players else []
+        df = _annotate_teams_dataframe_weeks(df, annotated_players)
+    else:
+        annotated_players = _annotate_player_games(raw_players) if raw_players else []
+        df = _annotate_teams_dataframe_weeks(df, None)
     team_week_labels, team_week_label_to_key = _week_options_from_teams_df(df)
 
     teams_tab, players_tab = st.tabs(["Teams", "Players"])
