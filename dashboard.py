@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -84,6 +85,7 @@ FOOTBALL_CONFIG = SportPageConfig(
 )
 
 ALL_CONFERENCES = "All conferences"
+FULL_SEASON = "Full season"
 NET_WEIGHT_WIN = 0.3
 NET_WEIGHT_SOS = 0.5
 NET_WEIGHT_MARGIN = 0.2
@@ -93,6 +95,370 @@ NET_WEIGHTS = {
     "SOS": NET_WEIGHT_SOS,
     "Avg_Margin": NET_WEIGHT_MARGIN,
 }
+
+
+def _norm_opponent_name(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+def _parse_game_date(value: object) -> datetime | None:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _calendar_week_meta(dt: datetime) -> tuple[str, str]:
+    iso = dt.isocalendar()
+    key = f"{iso.year}-W{iso.week:02d}"
+    monday = datetime.fromisocalendar(iso.year, iso.week, 1)
+    sunday = monday + timedelta(days=6)
+    if monday.year == sunday.year and monday.month == sunday.month:
+        label = (
+            f"Week of {monday.strftime('%b')} {monday.day}–{sunday.day}, {monday.year}"
+        )
+    elif monday.year == sunday.year:
+        label = (
+            f"Week of {monday.strftime('%b')} {monday.day}–"
+            f"{sunday.strftime('%b')} {sunday.day}, {monday.year}"
+        )
+    else:
+        label = (
+            f"Week of {monday.strftime('%b')} {monday.day}, {monday.year}–"
+            f"{sunday.strftime('%b')} {sunday.day}, {sunday.year}"
+        )
+    return key, label
+
+
+def _sequential_week_meta(n: int) -> tuple[str, str]:
+    return f"SEQ-{n:02d}", f"Week {n}"
+
+
+def _week_key_sort_tuple(key: str) -> tuple[int, int, int]:
+    if key.startswith("SEQ-"):
+        try:
+            return (1, int(key.split("-", 1)[1]), 0)
+        except ValueError:
+            return (1, 0, 0)
+    if "-W" in key:
+        year_s, week_s = key.split("-W", 1)
+        try:
+            return (0, int(year_s), int(week_s))
+        except ValueError:
+            return (0, 0, 0)
+    return (2, 0, 0)
+
+
+def _opponent_dates_by_school(players: list[dict]) -> dict[str, dict[str, list[datetime]]]:
+    """Map School_Slug -> normalized opponent -> sorted unique game dates."""
+    out: dict[str, dict[str, list[datetime]]] = {}
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        slug = str(player.get("School_Slug") or "").strip()
+        if not slug:
+            continue
+        school = out.setdefault(slug, {})
+        for game in player.get("Games") or []:
+            if not isinstance(game, dict):
+                continue
+            dt = _parse_game_date(game.get("Date"))
+            if dt is None:
+                continue
+            opp = _norm_opponent_name(game.get("Opponent"))
+            if not opp:
+                continue
+            school.setdefault(opp, []).append(dt)
+    for school in out.values():
+        for opp, dates in list(school.items()):
+            school[opp] = sorted(set(dates))
+    return out
+
+
+def _annotate_game_list(
+    games: list,
+    *,
+    opp_dates: dict[str, list[datetime]] | None = None,
+    allow_sequential: bool = True,
+) -> list[dict]:
+    """Copy games and attach Week_Key / Week labels (calendar when dated)."""
+    annotated: list[dict] = []
+    used_dates: dict[str, set[int]] = {}
+    completed_idx = 0
+    for raw in games:
+        if not isinstance(raw, dict):
+            continue
+        game = dict(raw)
+        dt = _parse_game_date(game.get("Date"))
+        if dt is None and opp_dates:
+            opp = _norm_opponent_name(game.get("Opponent"))
+            candidates = opp_dates.get(opp) or []
+            used = used_dates.setdefault(opp, set())
+            for cand in candidates:
+                ts = int(cand.timestamp())
+                if ts in used:
+                    continue
+                dt = cand
+                used.add(ts)
+                game["Date"] = cand.strftime("%m/%d/%Y")
+                break
+        if dt is not None:
+            key, label = _calendar_week_meta(dt)
+            game["Week_Key"] = key
+            game["Week"] = label
+        elif allow_sequential and (
+            game.get("Won") is not None or game.get("PF") is not None
+        ):
+            completed_idx += 1
+            key, label = _sequential_week_meta(completed_idx)
+            game["Week_Key"] = key
+            game["Week"] = label
+        annotated.append(game)
+    return annotated
+
+
+def _annotate_player_games(players: list[dict]) -> list[dict]:
+    annotated_players: list[dict] = []
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        copy = dict(player)
+        games = player.get("Games") or []
+        copy["Games"] = _annotate_game_list(
+            games if isinstance(games, list) else [],
+            allow_sequential=False,
+        )
+        annotated_players.append(copy)
+    return annotated_players
+
+
+def _annotate_teams_dataframe_weeks(
+    df: pd.DataFrame,
+    players: list[dict] | None = None,
+) -> pd.DataFrame:
+    """Attach week labels to team games (calendar dates when possible)."""
+    lookup = _opponent_dates_by_school(players or [])
+    allow_sequential = not bool(lookup)
+    out = df.copy()
+    annotated_games: list[object] = []
+    for _, row in out.iterrows():
+        games = row.get("Games")
+        if not isinstance(games, list):
+            annotated_games.append(games)
+            continue
+        slug = str(row.get("School_Slug") or "").strip()
+        annotated_games.append(
+            _annotate_game_list(
+                games,
+                opp_dates=lookup.get(slug),
+                allow_sequential=allow_sequential,
+            )
+        )
+
+    def _has_calendar(games_lists: list[object]) -> bool:
+        for games in games_lists:
+            if not isinstance(games, list):
+                continue
+            for game in games:
+                key = str(game.get("Week_Key") or "") if isinstance(game, dict) else ""
+                if key and not key.startswith("SEQ-"):
+                    return True
+        return False
+
+    if _has_calendar(annotated_games):
+        cleaned: list[object] = []
+        for games in annotated_games:
+            if not isinstance(games, list):
+                cleaned.append(games)
+                continue
+            cleaned_games = []
+            for game in games:
+                if not isinstance(game, dict):
+                    continue
+                g = dict(game)
+                if str(g.get("Week_Key") or "").startswith("SEQ-"):
+                    g.pop("Week_Key", None)
+                    g.pop("Week", None)
+                cleaned_games.append(g)
+            cleaned.append(cleaned_games)
+        annotated_games = cleaned
+    elif not allow_sequential:
+        # Player dates existed but nothing matched; fall back to game-week order.
+        rebuilt: list[object] = []
+        for _, row in out.iterrows():
+            games = row.get("Games")
+            if not isinstance(games, list):
+                rebuilt.append(games)
+                continue
+            rebuilt.append(_annotate_game_list(games, allow_sequential=True))
+        annotated_games = rebuilt
+
+    out["Games"] = annotated_games
+    return out
+
+
+def _week_options_from_games(games_iter) -> tuple[list[str], dict[str, str | None]]:
+    """Return (select labels, label -> Week_Key). Full season is first label."""
+    key_to_label: dict[str, str] = {}
+    for games in games_iter:
+        if not isinstance(games, list):
+            continue
+        for game in games:
+            if not isinstance(game, dict):
+                continue
+            key = game.get("Week_Key")
+            label = game.get("Week")
+            if not key or not label:
+                continue
+            key_to_label[str(key)] = str(label)
+    # Prefer calendar weeks when both styles somehow coexist.
+    calendar_keys = [k for k in key_to_label if not k.startswith("SEQ-")]
+    keys = calendar_keys if calendar_keys else list(key_to_label.keys())
+    keys = sorted(keys, key=_week_key_sort_tuple)
+    labels = [FULL_SEASON] + [key_to_label[k] for k in keys]
+    label_to_key: dict[str, str | None] = {
+        FULL_SEASON: None,
+        **{key_to_label[k]: k for k in keys},
+    }
+    return labels, label_to_key
+
+
+def _week_options_from_teams_df(df: pd.DataFrame) -> tuple[list[str], dict[str, str | None]]:
+    if df is None or df.empty or "Games" not in df.columns:
+        return [FULL_SEASON], {FULL_SEASON: None}
+    return _week_options_from_games(df["Games"].tolist())
+
+
+def _week_options_from_players(players: list[dict]) -> tuple[list[str], dict[str, str | None]]:
+    return _week_options_from_games(
+        (p.get("Games") if isinstance(p, dict) else None) for p in players
+    )
+
+
+def _filter_games_by_week(games: list, week_key: str | None) -> list[dict]:
+    if not week_key:
+        return [dict(g) for g in games if isinstance(g, dict)]
+    return [
+        dict(g)
+        for g in games
+        if isinstance(g, dict) and g.get("Week_Key") == week_key
+    ]
+
+
+def _finalize_team_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Recompute NJ-only stats, pace, Net rank, and conference strength."""
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    keep_idx: list = []
+    for idx, row in out.iterrows():
+        games = row.get("Games")
+        if not isinstance(games, list) or not games:
+            continue
+        record = _nj_record_from_games(games)
+        if record is None:
+            continue
+        for key, val in record.items():
+            out.at[idx, key] = val
+        keep_idx.append(idx)
+    if not keep_idx:
+        return out.iloc[0:0].copy()
+    out = out.loc[keep_idx].copy()
+    out = _recompute_sos_on_dataframe(out)
+    out = _add_pace(out)
+    out = _rank_by_net(out)
+    out = _add_conference_strength(out)
+    return out
+
+
+def _teams_dataframe_for_week(df: pd.DataFrame, week_key: str | None) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+    if not week_key:
+        return df
+    rows: list[dict] = []
+    for _, row in df.iterrows():
+        games = row.get("Games")
+        if not isinstance(games, list):
+            continue
+        filtered = _filter_games_by_week(games, week_key)
+        if not filtered:
+            continue
+        new_row = row.to_dict()
+        new_row["Games"] = filtered
+        rows.append(new_row)
+    if not rows:
+        return df.iloc[0:0].copy()
+    return _finalize_team_frame(pd.DataFrame(rows))
+
+
+def _aggregate_player_games(games: list[dict]) -> dict[str, int] | None:
+    completed = [
+        g
+        for g in games
+        if isinstance(g, dict)
+        and (
+            g.get("GP")
+            or g.get("PTS") is not None
+            or g.get("REB") is not None
+            or g.get("AST") is not None
+        )
+    ]
+    if not completed:
+        return None
+    gp = 0
+    pts = reb = ast = 0
+    for g in completed:
+        gp_val = pd.to_numeric(g.get("GP"), errors="coerce")
+        gp += int(gp_val) if pd.notna(gp_val) and float(gp_val) > 0 else 1
+        for key, bucket in (("PTS", "pts"), ("REB", "reb"), ("AST", "ast")):
+            val = pd.to_numeric(g.get(key), errors="coerce")
+            add = int(val) if pd.notna(val) else 0
+            if bucket == "pts":
+                pts += add
+            elif bucket == "reb":
+                reb += add
+            else:
+                ast += add
+    return {"GP": gp, "PTS": pts, "REB": reb, "AST": ast}
+
+
+def load_raw_players(cache_path: Path | None) -> tuple[list[dict], str | None]:
+    if cache_path is None or not cache_path.is_file():
+        return [], None
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return [], None
+    players = payload.get("players") or []
+    if not isinstance(players, list):
+        return [], payload.get("last_updated")
+    return [p for p in players if isinstance(p, dict)], payload.get("last_updated")
+
+
+def _week_selectbox(
+    *,
+    labels: list[str],
+    label_to_key: dict[str, str | None],
+    widget_key: str,
+) -> str | None:
+    selected_label = st.selectbox(
+        "Week",
+        options=labels,
+        index=0,
+        key=widget_key,
+        help="Filter leaderboard stats to a single week, or keep the full season.",
+    )
+    return label_to_key.get(selected_label)
 
 
 def _season_key(season: str) -> str:
@@ -1189,47 +1555,60 @@ def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame |
     return df, payload.get("last_updated")
 
 
-def load_cached_players(
-    cache_path: Path | None,
+def _players_frame_from_records(
+    players: list[dict],
     teams_df: pd.DataFrame | None = None,
-) -> tuple[pd.DataFrame | None, str | None]:
-    """Flatten player_data_cache.json into a season-totals leaderboard frame."""
-    if cache_path is None or not cache_path.is_file():
-        return None, None
-    try:
-        payload = json.loads(cache_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None, None
-    players = payload.get("players") or []
+    *,
+    week_key: str | None = None,
+) -> pd.DataFrame | None:
+    """Build a ranked player leaderboard from raw player records."""
     if not players:
-        return None, payload.get("last_updated")
+        return None
 
     rows: list[dict] = []
     for p in players:
         if not isinstance(p, dict):
             continue
-        totals = p.get("Season_Totals") or {}
-        if not isinstance(totals, dict):
-            totals = {}
-        gp = pd.to_numeric(totals.get("GP"), errors="coerce")
-        pts = pd.to_numeric(totals.get("PTS"), errors="coerce")
-        reb = pd.to_numeric(totals.get("REB"), errors="coerce")
-        ast = pd.to_numeric(totals.get("AST"), errors="coerce")
+        if week_key:
+            games = _filter_games_by_week(
+                p.get("Games") if isinstance(p.get("Games"), list) else [],
+                week_key,
+            )
+            totals = _aggregate_player_games(games)
+            if totals is None:
+                continue
+            gp = float(totals["GP"])
+            pts = float(totals["PTS"])
+            reb = float(totals["REB"])
+            ast = float(totals["AST"])
+        else:
+            totals = p.get("Season_Totals") or {}
+            if not isinstance(totals, dict):
+                totals = {}
+            gp = pd.to_numeric(totals.get("GP"), errors="coerce")
+            pts = pd.to_numeric(totals.get("PTS"), errors="coerce")
+            reb = pd.to_numeric(totals.get("REB"), errors="coerce")
+            ast = pd.to_numeric(totals.get("AST"), errors="coerce")
+            gp = float(gp) if pd.notna(gp) else None
+            pts = float(pts) if pd.notna(pts) else None
+            reb = float(reb) if pd.notna(reb) else None
+            ast = float(ast) if pd.notna(ast) else None
+
         row = {
             "Player": p.get("Name"),
             "Team": p.get("Team"),
             "School_Slug": p.get("School_Slug"),
             "Class": p.get("Class"),
             "Positions": p.get("Positions"),
-            "GP": int(gp) if pd.notna(gp) else None,
-            "PTS": int(pts) if pd.notna(pts) else None,
-            "REB": int(reb) if pd.notna(reb) else None,
-            "AST": int(ast) if pd.notna(ast) else None,
+            "GP": int(gp) if gp is not None else None,
+            "PTS": int(pts) if pts is not None else None,
+            "REB": int(reb) if reb is not None else None,
+            "AST": int(ast) if ast is not None else None,
         }
-        if pd.notna(gp) and float(gp) > 0:
-            row["PPG"] = round(float(pts) / float(gp), 1) if pd.notna(pts) else None
-            row["RPG"] = round(float(reb) / float(gp), 1) if pd.notna(reb) else None
-            row["APG"] = round(float(ast) / float(gp), 1) if pd.notna(ast) else None
+        if gp is not None and gp > 0:
+            row["PPG"] = round(float(pts) / float(gp), 1) if pts is not None else None
+            row["RPG"] = round(float(reb) / float(gp), 1) if reb is not None else None
+            row["APG"] = round(float(ast) / float(gp), 1) if ast is not None else None
         else:
             row["PPG"] = None
             row["RPG"] = None
@@ -1237,7 +1616,7 @@ def load_cached_players(
         rows.append(row)
 
     if not rows:
-        return None, payload.get("last_updated")
+        return None
 
     pdf = pd.DataFrame(rows)
     if (
@@ -1259,7 +1638,23 @@ def load_cached_players(
         na_position="last",
     ).reset_index(drop=True)
     pdf.insert(0, "Rank", range(1, len(pdf) + 1))
-    return pdf, payload.get("last_updated")
+    return pdf
+
+
+def load_cached_players(
+    cache_path: Path | None,
+    teams_df: pd.DataFrame | None = None,
+    *,
+    week_key: str | None = None,
+) -> tuple[pd.DataFrame | None, str | None]:
+    """Flatten player_data_cache.json into a season or weekly leaderboard frame."""
+    players, last_updated = load_raw_players(cache_path)
+    if not players:
+        return None, last_updated
+    if week_key:
+        players = _annotate_player_games(players)
+    pdf = _players_frame_from_records(players, teams_df, week_key=week_key)
+    return pdf, last_updated
 
 
 def _filter_players(pdf: pd.DataFrame, conference: str | None) -> pd.DataFrame:
@@ -1283,13 +1678,18 @@ def _render_players_section(
     *,
     season: str,
     player_cache: Path | None,
+    annotated_players: list[dict] | None = None,
 ) -> None:
     if player_cache is None and sport.player_cache_path is None and sport.key != "basketball":
         st.info(f"Player stats are not available for {sport.label} yet.")
         return
 
-    pdf, _updated = load_cached_players(player_cache, teams_df)
-    if pdf is None or pdf.empty:
+    players = annotated_players
+    last_updated = None
+    if players is None:
+        raw_players, last_updated = load_raw_players(player_cache)
+        players = _annotate_player_games(raw_players) if raw_players else []
+    if not players:
         st.info(
             f"No player data found for {season}. Run the player scraper with "
             f"`py -3 player_scraper.py --season {season}` to populate the cache."
@@ -1297,14 +1697,17 @@ def _render_players_section(
         return
 
     season_suffix = _season_key(season)
-    if "Conference" in pdf.columns:
+    week_labels, week_label_to_key = _week_options_from_players(players)
+
+    if "Conference" in teams_df.columns:
+        # Conference list comes from teams; player frame may add it after build.
         conferences = sorted(
-            c for c in pdf["Conference"].dropna().astype(str).unique() if c.strip()
+            c for c in teams_df["Conference"].dropna().astype(str).unique() if c.strip()
         )
     else:
         conferences = []
 
-    filter_col, metric_col = st.columns([3, 1])
+    filter_col, week_col, metric_col = st.columns([2, 2, 1])
     with filter_col:
         selected = st.selectbox(
             "Conference",
@@ -1312,13 +1715,37 @@ def _render_players_section(
             index=0,
             key=f"player_conference_{sport.key}_{season_suffix}",
         )
+    with week_col:
+        week_key = _week_selectbox(
+            labels=week_labels,
+            label_to_key=week_label_to_key,
+            widget_key=f"player_week_{sport.key}_{season_suffix}",
+        )
+
+    pdf = _players_frame_from_records(players, teams_df, week_key=week_key)
+    if pdf is None or pdf.empty:
+        st.info(
+            "No player stats found for the selected week."
+            if week_key
+            else (
+                f"No player data found for {season}. Run the player scraper with "
+                f"`py -3 player_scraper.py --season {season}` to populate the cache."
+            )
+        )
+        return
+
     view = _filter_players(pdf, selected)
     with metric_col:
         st.metric("Players", len(view))
 
+    week_desc = (
+        "Weekly totals from game logs in the selected week, sorted by points (PTS)."
+        if week_key
+        else "Season totals sorted by points (PTS)."
+    )
     st.markdown(
-        '<p class="nj-section-title">Player leaderboard</p>'
-        '<p class="nj-section-desc">Season totals sorted by points (PTS).</p>',
+        f'<p class="nj-section-title">Player leaderboard</p>'
+        f'<p class="nj-section-desc">{week_desc}</p>',
         unsafe_allow_html=True,
     )
 
@@ -1350,6 +1777,7 @@ def _render_players_section(
         hide_index=True,
         column_config=_leaderboard_column_config(display_cols),
     )
+    _ = last_updated
 
 
 def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
@@ -1413,7 +1841,9 @@ def render_sport_page(sport: SportPageConfig) -> None:
             "Rankings use **Net = 0.5×norm(SOS) + 0.3×norm(Win%) + 0.2×norm(Avg Margin)**, "
             "with each stat min–max scaled to 0–1 within the current view (statewide or conference). "
             "Win%, margin, and SOS use in-state opponents only; out-of-state games are excluded when "
-            "schedule data exists. Adjacent teams may swap when the lower-Net team won the head-to-head series."
+            "schedule data exists. Adjacent teams may swap when the lower-Net team won the head-to-head series. "
+            "Use the **Week** dropdown on Teams or Players to isolate stats to a single week "
+            "(calendar week when dates are available; otherwise game-week order)."
         )
 
     if df is None:
@@ -1423,6 +1853,11 @@ def render_sport_page(sport: SportPageConfig) -> None:
             "to populate the cache."
         )
         return
+
+    raw_players, _player_updated = load_raw_players(players_cache)
+    annotated_players = _annotate_player_games(raw_players) if raw_players else []
+    df = _annotate_teams_dataframe_weeks(df, annotated_players)
+    team_week_labels, team_week_label_to_key = _week_options_from_teams_df(df)
 
     teams_tab, players_tab = st.tabs(["Teams", "Players"])
 
@@ -1434,7 +1869,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
         else:
             conferences = []
 
-        filter_col, metric_col = st.columns([3, 1])
+        filter_col, week_col, metric_col = st.columns([2, 2, 1])
         with filter_col:
             selected = st.selectbox(
                 "Conference",
@@ -1442,13 +1877,26 @@ def render_sport_page(sport: SportPageConfig) -> None:
                 index=0,
                 key=f"conference_{sport.key}_{season_suffix}",
             )
+        with week_col:
+            week_key = _week_selectbox(
+                labels=team_week_labels,
+                label_to_key=team_week_label_to_key,
+                widget_key=f"team_week_{sport.key}_{season_suffix}",
+            )
+
+        week_df = _teams_dataframe_for_week(df, week_key)
         with metric_col:
-            view = _filter_and_rank(df, selected)
+            view = _filter_and_rank(week_df, selected)
             st.metric("Teams", len(view))
 
+        leaderboard_desc = (
+            "Sorted by Net within the selected week and conference view."
+            if week_key
+            else "Sorted by Net within the selected view."
+        )
         st.markdown(
-            '<p class="nj-section-title">Leaderboard</p>'
-            '<p class="nj-section-desc">Sorted by Net within the selected view.</p>',
+            f'<p class="nj-section-title">Leaderboard</p>'
+            f'<p class="nj-section-desc">{leaderboard_desc}</p>',
             unsafe_allow_html=True,
         )
 
@@ -1472,6 +1920,8 @@ def render_sport_page(sport: SportPageConfig) -> None:
         ]
         if view.empty and selected != ALL_CONFERENCES:
             st.warning(f"No teams found for conference: {selected}")
+        elif view.empty and week_key:
+            st.warning("No teams found for the selected week.")
         table = view[display_cols] if not view.empty else view
         st.dataframe(
             table,
@@ -1480,9 +1930,11 @@ def render_sport_page(sport: SportPageConfig) -> None:
             column_config=_leaderboard_column_config(display_cols),
         )
 
-        _render_scatter_section(view, f"{sport.key}_{season_suffix}")
+        if not view.empty:
+            week_suffix = week_key or "full"
+            _render_scatter_section(view, f"{sport.key}_{season_suffix}_{week_suffix}")
 
-        conf_chart = _conference_strength_chart_df(df)
+        conf_chart = _conference_strength_chart_df(week_df if week_key else df)
         if conf_chart is not None:
             st.divider()
             st.markdown(
@@ -1498,6 +1950,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
             df,
             season=season,
             player_cache=players_cache,
+            annotated_players=annotated_players,
         )
 
 

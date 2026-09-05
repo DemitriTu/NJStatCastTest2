@@ -441,7 +441,20 @@ def _parse_schedule_game_row(row) -> dict | None:
         return None
     game: dict = {"Opponent": opponent}
     tds = row.locator("td")
-    if tds.count() >= 3:
+    n = tds.count()
+    if n >= 1:
+        date_text = tds.nth(0).inner_text().strip()
+        # Common NJ.com formats: "12/15/2025", "Dec 15", "Fri, Dec 15"
+        date_text = re.sub(r"\s+", " ", date_text)
+        date_text = re.sub(
+            r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,\s*",
+            "",
+            date_text,
+            flags=re.I,
+        )
+        if date_text:
+            game["Date"] = date_text
+    if n >= 3:
         result_text = tds.nth(2).inner_text().strip()
         m = SCHEDULE_RESULT_RE.match(result_text)
         if m:
