@@ -1,323 +1,325 @@
 Team,Wins,Losses,GP,Win_Pct,PF,PA,Avg_Margin,School_Slug,Conference,Opp_Win_Pct,Opp_Opp_Win_Pct,SOS
-Mount Olive,1,0,1,1.0,55,0,55.0,flanders-mount-olive,SFC,0.5625,0.6545,0.5932
-West Deptford,1,0,1,1.0,49,3,46.0,westville-west-deptford,WJFL,0.5714,0.5635,0.5688
-Winslow,2,0,2,1.0,93,6,43.5,atco-winslow,WJFL,0.5625,0.5833,0.5694
-Northern Burlington,2,0,2,1.0,86,0,43.0,columbus-northern-burlington,WJFL,0.5,0.5324,0.5108
-Pascack Hills,1,0,1,1.0,48,6,42.0,montvale-pascack-hills,SFC,0.25,0.5062,0.3354
-Hillside,1,0,1,1.0,41,0,41.0,hillside-hillside,Big Central,0.375,0.4922,0.4141
-Schalick,2,0,2,1.0,91,12,39.5,pittsgrove-schalick,WJFL,0.3125,0.5009,0.3753
-Donovan Catholic,2,0,2,1.0,97,20,38.5,toms-river-donovan-catholic,Shore,0.7,0.7407,0.7136
-Pinelands,2,0,2,1.0,82,6,38.0,tuckerton-pinelands,Shore,0.3333,0.4992,0.3886
-Clearview,2,0,2,1.0,89,15,37.0,mullica-hill-clearview,WJFL,0.375,0.4702,0.4067
-Caldwell,1,0,1,1.0,43,7,36.0,west-caldwell-caldwell,SFC,0.5625,0.6319,0.5856
-Paterson Eastside,1,0,1,1.0,36,0,36.0,paterson-paterson-eastside,SFC,0.3125,0.4323,0.3524
-Holmdel,2,0,2,1.0,93,21,36.0,holmdel-holmdel,Shore,0.5,0.6532,0.5511
-Elizabeth,2,0,2,1.0,96,26,35.0,elizabeth-elizabeth,Big Central,0.5556,0.5748,0.562
-Butler,2,0,2,1.0,77,7,35.0,butler-butler,NJIC,0.3333,0.5,0.3889
-Rancocas Valley,2,0,2,1.0,70,0,35.0,mount-holly-rancocas-valley,WJFL,0.5,0.5694,0.5231
-Newton,2,0,2,1.0,68,0,34.0,newton-newton,SFC,0.4444,0.5228,0.4706
-Ridgewood,2,0,2,1.0,75,7,34.0,ridgewood-ridgewood,SFC,0.375,0.464,0.4047
-Haddon Heights,1,0,1,1.0,40,6,34.0,haddon-heights-haddon-heights,WJFL,0.2778,0.4714,0.3423
-Wood-Ridge,2,0,2,1.0,76,13,31.5,wood-ridge-wood-ridge,NJIC,0.1429,0.5213,0.269
-West Morris,2,0,2,1.0,83,20,31.5,chester-west-morris,SFC,0.6111,0.6186,0.6136
-Pennsauken,2,0,2,1.0,69,6,31.5,pennsauken-pennsauken,WJFL,0.3889,0.5417,0.4398
-Pingry,1,0,1,1.0,31,0,31.0,martinsville-pingry,Independent,0.5,0.572,0.524
-Hammonton,2,0,2,1.0,68,7,30.5,hammonton-hammonton,WJFL,0.4444,0.5361,0.475
-Notre Dame,2,0,2,1.0,61,0,30.5,lawrenceville-notre-dame,WJFL,0.3889,0.4753,0.4177
-Chatham,1,0,1,1.0,42,12,30.0,chatham-chatham,SFC,0.625,0.6406,0.6302
-Hanover Park,2,0,2,1.0,73,14,29.5,east-hanover-hanover-park,SFC,0.5,0.6447,0.5482
-East Brunswick,2,0,2,1.0,77,19,29.0,east-brunswick-east-brunswick,Big Central,0.3333,0.5309,0.3992
-Metuchen,1,0,1,1.0,29,0,29.0,metuchen-metuchen,Big Central,0.4286,0.5283,0.4618
-Middletown North,1,0,1,1.0,35,6,29.0,middletown-middletown-north,Shore,0.5,0.5778,0.5259
-Ewing,2,0,2,1.0,89,31,29.0,ewing-ewing,WJFL,0.3889,0.4846,0.4208
-Steinert,2,0,2,1.0,81,24,28.5,hamilton-steinert,WJFL,0.5,0.409,0.4697
-Highland Park,2,0,2,1.0,56,0,28.0,highland-park-highland-park,Big Central,0.3889,0.499,0.4256
-Linden,1,0,1,1.0,34,6,28.0,linden-linden,Big Central,0.4375,0.5278,0.4676
-Hoboken,2,0,2,1.0,84,28,28.0,hoboken-hoboken,SFC,0.3571,0.6032,0.4392
-Haddonfield,2,0,2,1.0,68,12,28.0,haddonfield-haddonfield,WJFL,0.6111,0.5342,0.5855
-Pitman,1,0,1,1.0,28,0,28.0,pitman-pitman,WJFL,0.2143,0.4082,0.2789
-Roxbury,2,0,2,1.0,80,26,27.0,succasunna-roxbury,SFC,0.6667,0.5808,0.638
-Lenape Valley,2,0,2,1.0,82,29,26.5,stanhope-lenape-valley,SFC,0.4444,0.512,0.467
-Barnegat,2,0,2,1.0,60,7,26.5,barnegat-barnegat,Shore,0.3333,0.4156,0.3608
-Bayonne,2,0,2,1.0,59,7,26.0,bayonne-bayonne,SFC,0.5556,0.436,0.5157
-Manalapan,2,0,2,1.0,77,25,26.0,manalapan-manalapan,Shore,0.6111,0.6779,0.6334
-Glassboro,2,0,2,1.0,78,26,26.0,glassboro-glassboro,WJFL,0.3889,0.482,0.4199
-Paulsboro,1,0,1,1.0,40,14,26.0,paulsboro-paulsboro,WJFL,0.4444,0.5082,0.4657
-Moorestown,2,0,2,1.0,57,7,25.0,moorestown-moorestown,WJFL,0.3333,0.4731,0.3799
-Egg Harbor,2,0,2,1.0,63,13,25.0,egg-harbor-twp-egg-harbor,WJFL,0.5,0.51,0.5033
-Don Bosco Prep,2,0,2,1.0,76,28,24.0,ramsey-don-bosco-prep,SFC,0.5,0.5646,0.5215
-Deptford,1,0,1,1.0,30,6,24.0,deptford-deptford,WJFL,0.375,0.4844,0.4115
-Irvington,2,0,2,1.0,67,20,23.5,irvington-irvington,SFC,0.3333,0.4926,0.3864
-Toms River North,2,0,2,1.0,59,14,22.5,toms-river-toms-river-north,Shore,0.7778,0.677,0.7442
-Glen Rock,1,0,1,1.0,28,6,22.0,glen-rock-glen-rock,NJIC,0.3333,0.4921,0.3862
-Bordentown,1,0,1,1.0,28,6,22.0,bordentown-bordentown,WJFL,0.125,0.4413,0.2304
-Hopewell Valley,2,0,2,1.0,55,12,21.5,pennington-hopewell-valley,WJFL,0.2778,0.5386,0.3647
-Ocean City,2,0,2,1.0,45,2,21.5,ocean-city-ocean-city,WJFL,0.3889,0.4877,0.4218
-Bridgewater-Raritan,1,0,1,1.0,28,7,21.0,bridgewater-bridgewater-raritan,Big Central,0.5556,0.5571,0.5561
-Montclair Kimberley,1,0,1,1.0,36,15,21.0,montclair-montclair-kimberley,Independent,0.6667,0.5167,0.6167
-Cedar Grove,1,0,1,1.0,35,14,21.0,cedar-grove-cedar-grove,SFC,0.625,0.5672,0.6057
-Paramus Catholic,1,0,1,1.0,35,14,21.0,paramus-paramus-catholic,SFC,0.4,0.6308,0.4769
-Lakeland,2,0,2,1.0,75,34,20.5,wanaque-lakeland,SFC,0.3889,0.5913,0.4563
-New Providence,1,0,1,1.0,27,7,20.0,new-providence-new-providence,Big Central,0.4286,0.5045,0.4539
-New Milford,2,0,2,1.0,54,14,20.0,new-milford-new-milford,NJIC,0.4286,0.4953,0.4508
-Southern,1,0,1,1.0,34,14,20.0,manahawkin-southern,Shore,0.75,0.719,0.7397
-Union,2,0,2,1.0,50,12,19.0,union-union,Big Central,0.5,0.5795,0.5265
-Brick Memorial,2,0,2,1.0,55,17,19.0,brick-brick-memorial,Shore,0.8333,0.7005,0.789
-Oakcrest,2,0,2,1.0,58,20,19.0,mays-landing-oakcrest,WJFL,0.6111,0.4684,0.5635
-Delbarton,2,0,2,1.0,49,12,18.5,morristown-delbarton,SFC,0.3333,0.6229,0.4299
-Brearley,2,0,2,1.0,54,18,18.0,kenilworth-brearley,Big Central,0.5,0.465,0.4883
-Manville,1,1,2,0.5,74,39,17.5,manville-manville,Big Central,0.3889,0.4009,0.3929
-Lodi,2,0,2,1.0,70,35,17.5,lodi-lodi,NJIC,0.2857,0.4809,0.3508
-Raritan,1,1,2,0.5,53,18,17.5,hazlet-raritan,Shore,0.5,0.5177,0.5059
-Morris Knolls,1,1,2,0.5,69,35,17.0,rockaway-morris-knolls,SFC,0.6111,0.587,0.6031
-Indian Hills,2,0,2,1.0,48,14,17.0,oakland-indian-hills,SFC,0.2222,0.6011,0.3485
-Ramsey,2,0,2,1.0,61,28,16.5,ramsey-ramsey,SFC,0.5714,0.621,0.588
-Mahwah,1,0,1,1.0,28,12,16.0,mahwah-mahwah,SFC,0.5625,0.5877,0.5709
-Mountain Lakes,2,0,2,1.0,72,40,16.0,mountain-lakes-mountain-lakes,SFC,0.6667,0.5843,0.6392
-Jackson Township,2,0,2,1.0,42,10,16.0,jackson-jackson-township,Shore,0.7778,0.6727,0.7427
-Demarest,2,0,2,1.0,43,12,15.5,demarest-demarest,SFC,0.3,0.535,0.3783
-Ferris,1,0,1,1.0,52,37,15.0,jersey-city-ferris,SFC,0.4,0.57,0.4567
-J.P. Stevens,2,0,2,1.0,42,13,14.5,edison-jp-stevens,Big Central,0.3333,0.4673,0.378
-High Point,2,0,2,1.0,63,34,14.5,sussex-high-point,SFC,0.2778,0.5653,0.3736
-Toms River South,1,1,2,0.5,58,29,14.5,toms-river-toms-river-south,Shore,0.5,0.5556,0.5185
-Ridge,1,0,1,1.0,21,7,14.0,basking-ridge-ridge,Big Central,0.625,0.5903,0.6134
-St. Thomas Aquinas,2,0,2,1.0,60,32,14.0,edison-st-thomas-aquinas-formerly-bishop-ahr,Big Central,0.3125,0.592,0.4057
-Point Pleasant Boro,2,0,2,1.0,44,16,14.0,pt-pleasant-point-pleasant-boro,Shore,0.7222,0.6488,0.6977
-Point Pleasant Beach,1,1,2,0.5,56,28,14.0,pt-pleasant-bch-point-pleasant-beach,Shore,0.2143,0.4147,0.2811
-Monmouth,1,0,1,1.0,21,7,14.0,tinton-falls-monmouth,Shore,0.3125,0.4391,0.3547
-Gateway,2,0,2,1.0,72,44,14.0,woodbury-hts-gateway,WJFL,0.3889,0.4291,0.4023
-Rutherford,2,0,2,1.0,54,27,13.5,rutherford-rutherford,NJIC,0.2857,0.5465,0.3726
-Parsippany,2,0,2,1.0,33,6,13.5,parsippany-parsippany,SFC,0.3889,0.4576,0.4118
-Washington Township,2,0,2,1.0,53,26,13.5,sewell-washington-township,WJFL,0.3889,0.6227,0.4668
-Atlantic Tech,1,1,2,0.5,54,27,13.5,mays-landing-atlantic-tech,WJFL,0.4444,0.513,0.4673
-Memorial,1,0,1,1.0,34,21,13.0,west-new-york-memorial,SFC,0.3,0.56,0.3867
-Warren Hills,1,1,2,0.5,54,28,13.0,washington-warren-hills,SFC,0.6111,0.5432,0.5885
-North Warren,1,1,2,0.5,38,12,13.0,blairstown-north-warren,SFC,0.3889,0.4614,0.4131
-West Essex,1,0,1,1.0,27,14,13.0,north-caldwell-west-essex,SFC,0.5625,0.4989,0.5413
-Shabazz,2,0,2,1.0,45,19,13.0,newark-shabazz,SFC,0.3125,0.4654,0.3635
-Paul VI,1,0,1,1.0,13,0,13.0,haddonfield-paul-vi,WJFL,0.5,0.535,0.5117
-Camden Eastside,1,1,2,0.5,63,37,13.0,camden-woodrow-wilson,WJFL,0.375,0.428,0.3927
-Spotswood,1,1,2,0.5,58,34,12.0,spotswood-spotswood,Big Central,0.5714,0.4732,0.5387
-North Brunswick,1,1,2,0.5,58,35,11.5,north-brunswick-north-brunswick,Big Central,0.4444,0.4846,0.4578
-Morristown-Beard,1,1,2,0.5,89,66,11.5,morristown-morristown-beard,Independent,0.75,0.4631,0.6544
-Shawnee,2,0,2,1.0,71,49,11.0,medford-shawnee,WJFL,0.5,0.5926,0.5309
-Phillipsburg,2,0,2,1.0,52,31,10.5,phillipsburg-phillipsburg,Big Central,0.5,0.625,0.5417
-Clayton,1,1,2,0.5,34,13,10.5,clayton-clayton,WJFL,0.4375,0.3607,0.4119
-Piscataway,2,0,2,1.0,54,34,10.0,piscataway-piscataway,Big Central,0.3889,0.5351,0.4376
-Old Bridge,1,1,2,0.5,84,64,10.0,matawan-old-bridge,Big Central,0.7222,0.4684,0.6376
-Vernon,1,1,2,0.5,76,56,10.0,vernon-vernon,SFC,0.4444,0.4688,0.4526
-St. Peter&#x27;s Prep,1,0,1,1.0,17,7,10.0,jersey-city-st-peters-prep,SFC,0.4167,0.6375,0.4903
-Rumson-Fair Haven,2,0,2,1.0,60,40,10.0,rumson-rumson-fair-haven,Shore,0.6875,0.7017,0.6922
-Dayton,1,1,2,0.5,70,52,9.0,springfield-dayton,Big Central,0.5556,0.4319,0.5143
-South Hunterdon,1,1,2,0.5,49,31,9.0,lambertville-south-hunterdon,Big Central,0.2857,0.3992,0.3236
-Delaware Valley,2,0,2,1.0,51,33,9.0,alexandria-delaware-valley,Big Central,0.2778,0.5143,0.3566
-Hasbrouck Heights,1,1,2,0.5,55,37,9.0,hasbrouck-hts-hasbrouck-heights,NJIC,0.5833,0.4792,0.5486
-Old Tappan,1,0,1,1.0,35,26,9.0,old-tappan-old-tappan,SFC,0.4375,0.4681,0.4477
-DePaul,2,0,2,1.0,63,45,9.0,wayne-depaul,SFC,0.4375,0.6135,0.4962
-Monroe,1,1,2,0.5,56,40,8.0,monroe-twp-monroe,Big Central,0.5556,0.4568,0.5226
-Morris Catholic,1,1,2,0.5,49,33,8.0,denville-morris-catholic,SFC,0.4,0.4738,0.4246
-Morris Hills,2,0,2,1.0,42,26,8.0,rockaway-morris-hills,SFC,0.3333,0.6181,0.4282
-Boonton,2,0,2,1.0,64,48,8.0,boonton-boonton,SFC,0.4444,0.5772,0.4887
-Freehold Township,1,1,2,0.5,79,63,8.0,freehold-freehold-township,Shore,0.4444,0.5548,0.4812
-Burlington Township,1,1,2,0.5,64,49,7.5,burlington-twp-burlington-township,WJFL,0.6111,0.5324,0.5849
-Cherry Hill West,1,1,2,0.5,35,20,7.5,cherry-hill-cherry-hill-west,WJFL,0.3889,0.4512,0.4096
-Cranford,1,0,1,1.0,31,24,7.0,cranford-cranford,Big Central,0.4375,0.4497,0.4416
-Wayne Hills,1,0,1,1.0,41,34,7.0,wayne-wayne-hills,SFC,0.4286,0.5112,0.4561
-Wallkill Valley,2,0,2,1.0,40,26,7.0,hamburg-wallkill-valley,SFC,0.2222,0.5872,0.3439
-Red Bank Catholic,1,1,2,0.5,90,76,7.0,red-bank-red-bank-catholic,Shore,0.875,0.6158,0.7886
-Brick Township,1,1,2,0.5,48,34,7.0,brick-brick-township,Shore,0.5556,0.5514,0.5542
-Eastern,2,0,2,1.0,41,27,7.0,voorhees-eastern,WJFL,0.5556,0.5617,0.5576
-Haddon Township,1,0,1,1.0,15,8,7.0,westmont-haddon-township,WJFL,0.1429,0.3765,0.2207
-Middle Township,1,1,2,0.5,48,34,7.0,cape-may-ct-hse-middle-township,WJFL,0.5,0.3367,0.4456
-Rahway,2,0,2,1.0,51,38,6.5,rahway-rahway,Big Central,0.3889,0.5247,0.4342
-Passaic,2,0,2,1.0,62,49,6.5,passaic-passaic,SFC,0.4444,0.4715,0.4534
-Bloomfield,1,0,1,1.0,13,7,6.0,bloomfield-bloomfield,SFC,0.1429,0.4624,0.2494
-Howell,1,0,1,1.0,13,7,6.0,farmingdale-howell,Shore,0.4375,0.5625,0.4792
-Watchung Hills,1,1,2,0.5,26,15,5.5,warren-watchung-hills,Big Central,0.3889,0.5123,0.43
-Wayne Valley,1,1,2,0.5,41,30,5.5,wayne-wayne-valley,SFC,0.5,0.5097,0.5032
-River Dell,1,1,2,0.5,45,35,5.0,oradell-river-dell,SFC,0.4444,0.4717,0.4535
-Triton,1,0,1,1.0,20,15,5.0,runnemede-triton,WJFL,0.3125,0.4618,0.3623
-Elmwood Park,1,1,2,0.5,50,41,4.5,elmwood-park-elmwood-park,NJIC,0.4286,0.4694,0.4422
-Westwood,1,1,2,0.5,47,38,4.5,washington-twp-westwood,SFC,0.75,0.5128,0.6709
-St. Augustine,1,0,1,1.0,24,20,4.0,richland-st-augustine,WJFL,0.5,0.5651,0.5217
-Lower Cape May,1,1,2,0.5,41,35,3.0,erma-lower-cape-may,WJFL,0.4444,0.5193,0.4694
-Somerville,1,1,2,0.5,54,49,2.5,somerville-somerville,Big Central,0.5,0.4421,0.4807
-Pennsville,1,1,2,0.5,54,49,2.5,pennsville-pennsville,WJFL,0.5625,0.4244,0.5165
-Waldwick/Midland Park,1,1,2,0.5,69,65,2.0,waldwick-waldwick,NJIC,0.5,0.4615,0.4872
-Palisades Park/Leonia,1,1,2,0.5,40,38,1.0,palisades-park-palisades-park,NJIC,0.4375,0.4415,0.4388
-Immaculata,1,1,2,0.5,70,68,1.0,somerville-immaculata,SFC,0.4286,0.5774,0.4782
-Bergen Tech,1,1,2,0.5,44,42,1.0,hackensack-bergen-tech,SFC,0.3,0.4883,0.3628
-Westfield,1,1,2,0.5,53,52,0.5,westfield-westfield,Big Central,0.6111,0.5363,0.5862
-Montville,1,1,2,0.5,35,34,0.5,montville-montville,SFC,0.3889,0.4545,0.4108
-Teaneck,1,1,2,0.5,48,47,0.5,teaneck-teaneck,SFC,0.4375,0.4297,0.4349
-Shore,1,1,2,0.5,28,27,0.5,w-long-branch-shore,Shore,0.5,0.483,0.4943
-Passaic Tech,1,1,2,0.5,49,49,0.0,wayne-passaic-tech,SFC,0.6111,0.4834,0.5685
-Toms River East,1,1,2,0.5,42,42,0.0,toms-river-toms-river-east,Shore,0.5556,0.537,0.5494
-Perth Amboy,1,1,2,0.5,53,54,-0.5,perth-amboy-perth-amboy,Big Central,0.5,0.5228,0.5076
-Johnson,0,1,1,0.0,33,34,-1.0,clark-johnson,Big Central,0.6429,0.4263,0.5707
-Union City,1,1,2,0.5,52,54,-1.0,union-city-union-city,SFC,0.5,0.4536,0.4845
-West Orange,0,1,1,0.0,12,13,-1.0,west-orange-west-orange,SFC,0.5833,0.3264,0.4977
-Williamstown,1,1,2,0.5,26,28,-1.0,williamstown-williamstown,WJFL,0.5556,0.5347,0.5486
-Buena,0,1,1,0.0,22,23,-1.0,buena-buena,WJFL,0.4167,0.381,0.4048
-Vineland,1,1,2,0.5,46,48,-1.0,vineland-vineland,WJFL,0.3889,0.513,0.4303
-North Plainfield,1,1,2,0.5,17,20,-1.5,no-plainfield-north-plainfield,Big Central,0.4444,0.4632,0.4507
-New Egypt,1,1,2,0.5,26,29,-1.5,new-egypt-new-egypt,Shore,0.3125,0.3818,0.3356
-Colonia,0,1,1,0.0,21,23,-2.0,colonia-colonia,Big Central,0.5,0.4991,0.4997
-Nutley,0,1,1,0.0,29,31,-2.0,nutley-nutley,SFC,0.5714,0.3598,0.5009
-Willingboro,0,1,1,0.0,28,30,-2.0,willingboro-willingboro,WJFL,0.625,0.5139,0.588
-Millburn,1,1,2,0.5,26,31,-2.5,millburn-millburn,SFC,0.3,0.46,0.3533
-Parsippany Hills,1,1,2,0.5,36,41,-2.5,morris-plains-parsippany-hills,SFC,0.3333,0.4298,0.3655
-Cedar Creek,0,2,2,0.0,30,35,-2.5,egg-harbor-city-cedar-creek,WJFL,0.4444,0.4534,0.4474
-South Brunswick,1,1,2,0.5,27,33,-3.0,monmouth-jct-south-brunswick,Big Central,0.5556,0.483,0.5314
-Northern Highlands,0,1,1,0.0,14,17,-3.0,allendale-northern-highlands,SFC,0.6429,0.4901,0.5919
-Delran,1,1,2,0.5,24,30,-3.0,delran-delran,WJFL,0.4444,0.565,0.4846
-Woodstown,1,1,2,0.5,28,34,-3.0,woodstown-woodstown,WJFL,0.4375,0.4463,0.4404
-Sterling,1,1,2,0.5,38,45,-3.5,somerdale-sterling,WJFL,0.3333,0.4783,0.3817
-Gov. Livingston,1,1,2,0.5,47,55,-4.0,berkeley-hts-gov-livingston,Big Central,0.2778,0.5362,0.3639
-Ramapo,1,1,2,0.5,39,47,-4.0,franklin-lakes-ramapo,SFC,0.5625,0.5098,0.5449
-St. Joseph (Mont.),0,1,1,0.0,44,48,-4.0,montvale-st-joseph-mont,SFC,0.6667,0.509,0.6141
-Hillsborough,1,1,2,0.5,46,55,-4.5,hillsborough-hillsborough,Big Central,0.6667,0.5448,0.626
-Summit,1,1,2,0.5,33,42,-4.5,summit-summit,Big Central,0.3889,0.4931,0.4236
-South Plainfield,1,1,2,0.5,41,50,-4.5,so-plainfield-south-plainfield,Big Central,0.3889,0.4745,0.4174
-Hunterdon Central,0,2,2,0.0,28,38,-5.0,flemington-hunterdon-central,Big Central,0.6111,0.5139,0.5787
-Sayreville,1,1,2,0.5,30,40,-5.0,parlin-sayreville,Big Central,0.5,0.5502,0.5167
-Dover,0,1,1,0.0,29,34,-5.0,dover-dover,SFC,0.375,0.4,0.3833
-Kearny,1,1,2,0.5,40,50,-5.0,kearny-kearny,SFC,0.5,0.4458,0.4819
-Millville,1,1,2,0.5,49,59,-5.0,millville-millville,WJFL,0.625,0.4939,0.5813
-Timber Creek,0,2,2,0.0,50,60,-5.0,erial-timber-creek,WJFL,0.3125,0.4722,0.3657
-Weehawken,1,1,2,0.5,24,35,-5.5,weehawken-weehawken,NJIC,0.4286,0.3992,0.4188
-East Orange,0,1,1,0.0,20,26,-6.0,east-orange-east-orange,SFC,0.3571,0.3957,0.37
-Pascack Valley,1,1,2,0.5,38,50,-6.0,hillsdale-pascack-valley,SFC,0.2778,0.486,0.3472
-Fair Lawn,0,1,1,0.0,8,14,-6.0,fair-lawn-fair-lawn,SFC,0.5625,0.3912,0.5054
-Newark Central,0,1,1,0.0,7,13,-6.0,newark-newark-central,SFC,0.3571,0.3971,0.3705
-West Side,0,1,1,0.0,14,20,-6.0,newark-west-side,SFC,0.2857,0.4385,0.3366
-Bernards,0,2,2,0.0,44,57,-6.5,bernardsville-bernards,Big Central,0.6111,0.3875,0.5366
-Manasquan,1,1,2,0.5,26,39,-6.5,manasquan-manasquan,Shore,0.5556,0.6019,0.571
-Clifton,0,1,1,0.0,21,28,-7.0,clifton-clifton,SFC,0.5625,0.3573,0.4941
-Mendham,1,1,2,0.5,40,54,-7.0,mendham-mendham,SFC,0.7222,0.5438,0.6627
-Orange,0,1,1,0.0,0,7,-7.0,orange-orange,SFC,0.3333,0.3662,0.3443
-Matawan,1,1,2,0.5,25,39,-7.0,aberdeen-matawan,Shore,0.5,0.5123,0.5041
-Cherokee,1,1,2,0.5,42,56,-7.0,marlton-cherokee,WJFL,0.5,0.537,0.5123
-Audubon,0,1,1,0.0,21,28,-7.0,audubon-audubon,WJFL,0.4375,0.3776,0.4175
-Palmyra,0,1,1,0.0,8,15,-7.0,palmyra-palmyra,WJFL,0.2143,0.3762,0.2682
-Woodbridge,1,1,2,0.5,21,36,-7.5,woodbridge-woodbridge,Big Central,0.4444,0.5378,0.4756
-Marlboro,1,1,2,0.5,28,43,-7.5,marlboro-marlboro,Shore,0.4444,0.5239,0.4709
-Pleasantville,0,2,2,0.0,20,35,-7.5,pleasantville-pleasantville,WJFL,0.5,0.4938,0.4979
-Dumont,0,1,1,0.0,22,30,-8.0,dumont-dumont,SFC,0.7222,0.4538,0.6327
-Paramus,0,2,2,0.0,28,44,-8.0,paramus-paramus,SFC,0.3333,0.379,0.3485
-Pope John,0,1,1,0.0,6,14,-8.0,sparta-pope-john,SFC,0.75,0.4652,0.6551
-Hawthorne,1,1,2,0.5,36,53,-8.5,hawthorne-hawthorne,NJIC,0.4167,0.4861,0.4398
-Bergen Catholic,0,2,2,0.0,69,86,-8.5,oradell-bergen-catholic,SFC,0.8,0.4675,0.6892
-Lacey,1,1,2,0.5,18,35,-8.5,lanoka-harbor-lacey,Shore,0.5556,0.51,0.5404
-Belvidere,1,1,2,0.5,36,54,-9.0,belvidere-belvidere,Big Central,0.3333,0.4117,0.3595
-Becton,1,1,2,0.5,52,70,-9.0,east-rutherford-becton,NJIC,0.5,0.4503,0.4834
-Seton Hall Prep,0,2,2,0.0,38,56,-9.0,west-orange-seton-hall-prep,SFC,0.5833,0.4916,0.5527
-Cherry Hill East,0,2,2,0.0,30,48,-9.0,cherry-hill-cherry-hill-east,WJFL,0.7778,0.4753,0.677
-West Milford,0,2,2,0.0,20,39,-9.5,west-milford-west-milford,SFC,0.5556,0.3725,0.4945
-Overbrook,1,1,2,0.5,40,60,-10.0,pine-hill-overbrook,WJFL,0.5556,0.5064,0.5392
-St. Joseph (Hamm.),1,1,2,0.5,26,46,-10.0,hammonton-st-joseph-hamm,WJFL,0.375,0.4841,0.4114
-Lawrence,0,2,2,0.0,16,37,-10.5,lawrenceville-lawrence,WJFL,0.3889,0.4753,0.4177
-Hackettstown,1,1,2,0.5,27,49,-11.0,hackettstown-hackettstown,SFC,0.5556,0.4796,0.5302
-Livingston,0,1,1,0.0,7,18,-11.0,livingston-livingston,SFC,0.3571,0.4484,0.3876
-Jefferson,0,2,2,0.0,38,61,-11.5,oak-ridge-jefferson,SFC,0.7222,0.4681,0.6375
-Central Regional,0,2,2,0.0,28,51,-11.5,bayville-central-regional,Shore,0.7222,0.527,0.6572
-Neptune,1,1,2,0.5,38,61,-11.5,neptune-neptune,Shore,0.5556,0.5432,0.5514
-Trenton,0,2,2,0.0,12,35,-11.5,trenton-trenton,WJFL,0.625,0.4653,0.5718
-Franklin,0,1,1,0.0,21,33,-12.0,somerset-franklin,Big Central,0.625,0.4627,0.5709
-Pequannock,0,2,2,0.0,38,62,-12.0,pompton-plains-pequannock,SFC,0.7778,0.5139,0.6898
-Wall,1,1,2,0.5,45,69,-12.0,wall-wall,Shore,0.7778,0.6594,0.7383
-Garfield,1,1,2,0.5,40,65,-12.5,garfield-garfield,NJIC,0.4286,0.5047,0.4539
-Manchester Regional,0,1,1,0.0,14,27,-13.0,haledon-manchester-regional,NJIC,0.5,0.4412,0.4804
-Bogota,0,2,2,0.0,49,75,-13.0,bogota-bogota,NJIC,0.5,0.389,0.463
-Tenafly,0,1,1,0.0,21,34,-13.0,tenafly-tenafly,SFC,0.6,0.4394,0.5465
-Atlantic City,0,1,1,0.0,19,32,-13.0,atlantic-city-atlantic-city,WJFL,0.6667,0.4877,0.607
-Plainfield,0,2,2,0.0,39,66,-13.5,plainfield-plainfield,Big Central,0.6667,0.4807,0.6047
-Park Ridge,0,2,2,0.0,27,54,-13.5,park-ridge-park-ridge,NJIC,0.5,0.3787,0.4596
-Dunellen,0,1,1,0.0,7,21,-14.0,dunellen-dunellen,Big Central,0.3571,0.389,0.3678
-Glen Ridge,1,1,2,0.5,20,48,-14.0,glen-ridge-glen-ridge,SFC,0.5,0.4597,0.4866
-Allentown,0,2,2,0.0,23,51,-14.0,allentown-allentown,WJFL,0.5,0.4645,0.4882
-Holy Spirit,0,1,1,0.0,14,28,-14.0,absecon-holy-spirit,WJFL,0.5,0.4524,0.4841
-Lenape,1,1,2,0.5,26,55,-14.5,medford-lenape,WJFL,0.5556,0.5694,0.5602
-Wallington,1,1,2,0.5,19,50,-15.5,wallington-wallington,NJIC,0.4286,0.4286,0.4286
-St. John Vianney,1,1,2,0.5,42,73,-15.5,holmdel-st-john-vianney,Shore,0.65,0.6401,0.6467
-Mainland,1,1,2,0.5,13,44,-15.5,linwood-mainland,WJFL,0.2778,0.5262,0.3606
-Cinnaminson,0,2,2,0.0,14,45,-15.5,cinnaminson-cinnaminson,WJFL,0.4444,0.4344,0.4411
-Cumberland,0,2,2,0.0,15,46,-15.5,seabrook-cumberland,WJFL,0.5625,0.4226,0.5159
-North Bergen,0,1,1,0.0,6,22,-16.0,north-bergen-north-bergen,SFC,0.7,0.42,0.6067
-Scotch Plains-Fanwood,0,2,2,0.0,34,67,-16.5,scotch-plains-scotch-plains-fanwood,Big Central,0.5,0.4552,0.4851
-Hopatcong,0,2,2,0.0,28,61,-16.5,hopatcong-hopatcong,SFC,0.5,0.4516,0.4839
-Middletown South,0,2,2,0.0,41,74,-16.5,middletown-middletown-south,Shore,0.6667,0.5147,0.616
-Hamilton West,1,1,2,0.5,32,65,-16.5,hamilton-hamilton-west,WJFL,0.3889,0.4782,0.4187
-North Hunterdon,0,2,2,0.0,19,53,-17.0,annandale-north-hunterdon,Big Central,0.3889,0.463,0.4136
-Red Bank Regional,1,1,2,0.5,21,55,-17.0,little-silver-red-bank-regional,Shore,0.5,0.4866,0.4955
-Roselle Park,0,2,2,0.0,33,69,-18.0,roselle-park-roselle-park,Big Central,0.625,0.4059,0.552
-Highland,0,1,1,0.0,0,18,-18.0,blackwood-highland,WJFL,0.5625,0.4366,0.5205
-Manchester Township,1,1,2,0.5,7,45,-19.0,manchester-manchester-township,Shore,0.3889,0.3769,0.3849
-Princeton,1,1,2,0.5,17,55,-19.0,princeton-princeton,WJFL,0.5,0.483,0.4943
-Absegami,0,2,2,0.0,27,66,-19.5,galloway-absegami,WJFL,0.6667,0.4342,0.5892
-Seneca,0,2,2,0.0,20,60,-20.0,tabernacle-seneca,WJFL,0.7222,0.4786,0.641
+Mount Olive,1,0,1,1.0,55,0,55.0,flanders-mount-olive,SFC,,,
+West Deptford,1,0,1,1.0,49,3,46.0,westville-west-deptford,WJFL,,,
+Winslow,2,0,2,1.0,93,6,43.5,atco-winslow,WJFL,,,
+Northern Burlington,2,0,2,1.0,86,0,43.0,columbus-northern-burlington,WJFL,,,
+Pascack Hills,1,0,1,1.0,48,6,42.0,montvale-pascack-hills,SFC,,,
+Hillside,1,0,1,1.0,41,0,41.0,hillside-hillside,Big Central,,,
+Schalick,2,0,2,1.0,91,12,39.5,pittsgrove-schalick,WJFL,,,
+Donovan Catholic,2,0,2,1.0,97,20,38.5,toms-river-donovan-catholic,Shore,,,
+Pinelands,2,0,2,1.0,82,6,38.0,tuckerton-pinelands,Shore,,,
+Clearview,2,0,2,1.0,89,15,37.0,mullica-hill-clearview,WJFL,,,
+Caldwell,1,0,1,1.0,43,7,36.0,west-caldwell-caldwell,SFC,,,
+Paterson Eastside,1,0,1,1.0,36,0,36.0,paterson-paterson-eastside,SFC,,,
+Holmdel,2,0,2,1.0,93,21,36.0,holmdel-holmdel,Shore,,,
+Elizabeth,2,0,2,1.0,96,26,35.0,elizabeth-elizabeth,Big Central,,,
+Butler,2,0,2,1.0,77,7,35.0,butler-butler,NJIC,,,
+Rancocas Valley,2,0,2,1.0,70,0,35.0,mount-holly-rancocas-valley,WJFL,,,
+Newton,2,0,2,1.0,68,0,34.0,newton-newton,SFC,,,
+Ridgewood,2,0,2,1.0,75,7,34.0,ridgewood-ridgewood,SFC,,,
+Haddon Heights,1,0,1,1.0,40,6,34.0,haddon-heights-haddon-heights,WJFL,,,
+Wood-Ridge,2,0,2,1.0,76,13,31.5,wood-ridge-wood-ridge,NJIC,,,
+West Morris,2,0,2,1.0,83,20,31.5,chester-west-morris,SFC,,,
+Pennsauken,2,0,2,1.0,69,6,31.5,pennsauken-pennsauken,WJFL,,,
+Pingry,1,0,1,1.0,31,0,31.0,martinsville-pingry,Independent,,,
+Hammonton,2,0,2,1.0,68,7,30.5,hammonton-hammonton,WJFL,,,
+Notre Dame,2,0,2,1.0,61,0,30.5,lawrenceville-notre-dame,WJFL,,,
+Chatham,1,0,1,1.0,42,12,30.0,chatham-chatham,SFC,,,
+Hanover Park,2,0,2,1.0,73,14,29.5,east-hanover-hanover-park,SFC,,,
+East Brunswick,2,0,2,1.0,77,19,29.0,east-brunswick-east-brunswick,Big Central,,,
+Metuchen,1,0,1,1.0,29,0,29.0,metuchen-metuchen,Big Central,,,
+Middletown North,1,0,1,1.0,35,6,29.0,middletown-middletown-north,Shore,,,
+Ewing,2,0,2,1.0,89,31,29.0,ewing-ewing,WJFL,,,
+Steinert,2,0,2,1.0,81,24,28.5,hamilton-steinert,WJFL,,,
+Highland Park,2,0,2,1.0,56,0,28.0,highland-park-highland-park,Big Central,,,
+Linden,1,0,1,1.0,34,6,28.0,linden-linden,Big Central,,,
+Hoboken,2,0,2,1.0,84,28,28.0,hoboken-hoboken,SFC,,,
+Haddonfield,2,0,2,1.0,68,12,28.0,haddonfield-haddonfield,WJFL,,,
+Pitman,1,0,1,1.0,28,0,28.0,pitman-pitman,WJFL,,,
+Roxbury,2,0,2,1.0,80,26,27.0,succasunna-roxbury,SFC,,,
+Lenape Valley,2,0,2,1.0,82,29,26.5,stanhope-lenape-valley,SFC,,,
+Barnegat,2,0,2,1.0,60,7,26.5,barnegat-barnegat,Shore,,,
+Bayonne,2,0,2,1.0,59,7,26.0,bayonne-bayonne,SFC,,,
+Manalapan,2,0,2,1.0,77,25,26.0,manalapan-manalapan,Shore,,,
+Glassboro,2,0,2,1.0,78,26,26.0,glassboro-glassboro,WJFL,,,
+Paulsboro,1,0,1,1.0,40,14,26.0,paulsboro-paulsboro,WJFL,,,
+Moorestown,2,0,2,1.0,57,7,25.0,moorestown-moorestown,WJFL,,,
+Egg Harbor,2,0,2,1.0,63,13,25.0,egg-harbor-twp-egg-harbor,WJFL,,,
+Don Bosco Prep,2,0,2,1.0,76,28,24.0,ramsey-don-bosco-prep,SFC,,,
+Deptford,1,0,1,1.0,30,6,24.0,deptford-deptford,WJFL,,,
+Irvington,2,0,2,1.0,67,20,23.5,irvington-irvington,SFC,,,
+West Orange,1,1,2,0.5,60,13,23.5,west-orange-west-orange,SFC,,,
+Toms River North,2,0,2,1.0,59,14,22.5,toms-river-toms-river-north,Shore,,,
+Glen Rock,1,0,1,1.0,28,6,22.0,glen-rock-glen-rock,NJIC,,,
+Bordentown,1,0,1,1.0,28,6,22.0,bordentown-bordentown,WJFL,,,
+Hopewell Valley,2,0,2,1.0,55,12,21.5,pennington-hopewell-valley,WJFL,,,
+Ocean City,2,0,2,1.0,45,2,21.5,ocean-city-ocean-city,WJFL,,,
+Bridgewater-Raritan,1,0,1,1.0,28,7,21.0,bridgewater-bridgewater-raritan,Big Central,,,
+Montclair Kimberley,1,0,1,1.0,36,15,21.0,montclair-montclair-kimberley,Independent,,,
+Cedar Grove,1,0,1,1.0,35,14,21.0,cedar-grove-cedar-grove,SFC,,,
+Lakeland,2,0,2,1.0,75,34,20.5,wanaque-lakeland,SFC,,,
+New Providence,1,0,1,1.0,27,7,20.0,new-providence-new-providence,Big Central,,,
+New Milford,2,0,2,1.0,54,14,20.0,new-milford-new-milford,NJIC,,,
+Southern,1,0,1,1.0,34,14,20.0,manahawkin-southern,Shore,,,
+Union,2,0,2,1.0,50,12,19.0,union-union,Big Central,,,
+Brick Memorial,2,0,2,1.0,55,17,19.0,brick-brick-memorial,Shore,,,
+Oakcrest,2,0,2,1.0,58,20,19.0,mays-landing-oakcrest,WJFL,,,
+Delbarton,2,0,2,1.0,49,12,18.5,morristown-delbarton,SFC,,,
+Brearley,2,0,2,1.0,54,18,18.0,kenilworth-brearley,Big Central,,,
+Manville,1,1,2,0.5,74,39,17.5,manville-manville,Big Central,,,
+Lodi,2,0,2,1.0,70,35,17.5,lodi-lodi,NJIC,,,
+Raritan,1,1,2,0.5,53,18,17.5,hazlet-raritan,Shore,,,
+Morris Knolls,1,1,2,0.5,69,35,17.0,rockaway-morris-knolls,SFC,,,
+Indian Hills,2,0,2,1.0,48,14,17.0,oakland-indian-hills,SFC,,,
+Ramsey,2,0,2,1.0,61,28,16.5,ramsey-ramsey,SFC,,,
+Mahwah,1,0,1,1.0,28,12,16.0,mahwah-mahwah,SFC,,,
+Mountain Lakes,2,0,2,1.0,72,40,16.0,mountain-lakes-mountain-lakes,SFC,,,
+Jackson Township,2,0,2,1.0,42,10,16.0,jackson-jackson-township,Shore,,,
+Demarest,2,0,2,1.0,43,12,15.5,demarest-demarest,SFC,,,
+Ferris,1,0,1,1.0,52,37,15.0,jersey-city-ferris,SFC,,,
+J.P. Stevens,2,0,2,1.0,42,13,14.5,edison-jp-stevens,Big Central,,,
+High Point,2,0,2,1.0,63,34,14.5,sussex-high-point,SFC,,,
+Toms River South,1,1,2,0.5,58,29,14.5,toms-river-toms-river-south,Shore,,,
+Ridge,1,0,1,1.0,21,7,14.0,basking-ridge-ridge,Big Central,,,
+St. Thomas Aquinas,2,0,2,1.0,60,32,14.0,edison-st-thomas-aquinas-formerly-bishop-ahr,Big Central,,,
+Point Pleasant Boro,2,0,2,1.0,44,16,14.0,pt-pleasant-point-pleasant-boro,Shore,,,
+Point Pleasant Beach,1,1,2,0.5,56,28,14.0,pt-pleasant-bch-point-pleasant-beach,Shore,,,
+Monmouth,1,0,1,1.0,21,7,14.0,tinton-falls-monmouth,Shore,,,
+Gateway,2,0,2,1.0,72,44,14.0,woodbury-hts-gateway,WJFL,,,
+Rutherford,2,0,2,1.0,54,27,13.5,rutherford-rutherford,NJIC,,,
+Parsippany,2,0,2,1.0,33,6,13.5,parsippany-parsippany,SFC,,,
+Washington Township,2,0,2,1.0,53,26,13.5,sewell-washington-township,WJFL,,,
+Atlantic Tech,1,1,2,0.5,54,27,13.5,mays-landing-atlantic-tech,WJFL,,,
+Memorial,1,0,1,1.0,34,21,13.0,west-new-york-memorial,SFC,,,
+Warren Hills,1,1,2,0.5,54,28,13.0,washington-warren-hills,SFC,,,
+North Warren,1,1,2,0.5,38,12,13.0,blairstown-north-warren,SFC,,,
+West Essex,1,0,1,1.0,27,14,13.0,north-caldwell-west-essex,SFC,,,
+Shabazz,2,0,2,1.0,45,19,13.0,newark-shabazz,SFC,,,
+Paul VI,1,0,1,1.0,13,0,13.0,haddonfield-paul-vi,WJFL,,,
+Camden Eastside,1,1,2,0.5,63,37,13.0,camden-woodrow-wilson,WJFL,,,
+Spotswood,1,1,2,0.5,58,34,12.0,spotswood-spotswood,Big Central,,,
+North Brunswick,1,1,2,0.5,58,35,11.5,north-brunswick-north-brunswick,Big Central,,,
+Morristown-Beard,1,1,2,0.5,89,66,11.5,morristown-morristown-beard,Independent,,,
+Shawnee,2,0,2,1.0,71,49,11.0,medford-shawnee,WJFL,,,
+Phillipsburg,2,0,2,1.0,52,31,10.5,phillipsburg-phillipsburg,Big Central,,,
+Clayton,1,1,2,0.5,34,13,10.5,clayton-clayton,WJFL,,,
+Piscataway,2,0,2,1.0,54,34,10.0,piscataway-piscataway,Big Central,,,
+Old Bridge,1,1,2,0.5,84,64,10.0,matawan-old-bridge,Big Central,,,
+Vernon,1,1,2,0.5,76,56,10.0,vernon-vernon,SFC,,,
+St. Peter&#x27;s Prep,1,0,1,1.0,17,7,10.0,jersey-city-st-peters-prep,SFC,,,
+Rumson-Fair Haven,2,0,2,1.0,60,40,10.0,rumson-rumson-fair-haven,Shore,,,
+Dayton,1,1,2,0.5,70,52,9.0,springfield-dayton,Big Central,,,
+South Hunterdon,1,1,2,0.5,49,31,9.0,lambertville-south-hunterdon,Big Central,,,
+Delaware Valley,2,0,2,1.0,51,33,9.0,alexandria-delaware-valley,Big Central,,,
+Hasbrouck Heights,1,1,2,0.5,55,37,9.0,hasbrouck-hts-hasbrouck-heights,NJIC,,,
+East Orange,1,1,2,0.5,56,38,9.0,east-orange-east-orange,SFC,,,
+Old Tappan,1,0,1,1.0,35,26,9.0,old-tappan-old-tappan,SFC,,,
+DePaul,2,0,2,1.0,63,45,9.0,wayne-depaul,SFC,,,
+Monroe,1,1,2,0.5,56,40,8.0,monroe-twp-monroe,Big Central,,,
+Morris Catholic,1,1,2,0.5,49,33,8.0,denville-morris-catholic,SFC,,,
+Morris Hills,2,0,2,1.0,42,26,8.0,rockaway-morris-hills,SFC,,,
+Wayne Hills,2,0,2,1.0,62,46,8.0,wayne-wayne-hills,SFC,,,
+Boonton,2,0,2,1.0,64,48,8.0,boonton-boonton,SFC,,,
+Freehold Township,1,1,2,0.5,79,63,8.0,freehold-freehold-township,Shore,,,
+Burlington Township,1,1,2,0.5,64,49,7.5,burlington-twp-burlington-township,WJFL,,,
+Cherry Hill West,1,1,2,0.5,35,20,7.5,cherry-hill-cherry-hill-west,WJFL,,,
+Cranford,1,0,1,1.0,31,24,7.0,cranford-cranford,Big Central,,,
+Wallkill Valley,2,0,2,1.0,40,26,7.0,hamburg-wallkill-valley,SFC,,,
+Red Bank Catholic,1,1,2,0.5,90,76,7.0,red-bank-red-bank-catholic,Shore,,,
+Brick Township,1,1,2,0.5,48,34,7.0,brick-brick-township,Shore,,,
+Eastern,2,0,2,1.0,41,27,7.0,voorhees-eastern,WJFL,,,
+Haddon Township,1,0,1,1.0,15,8,7.0,westmont-haddon-township,WJFL,,,
+Middle Township,1,1,2,0.5,48,34,7.0,cape-may-ct-hse-middle-township,WJFL,,,
+Rahway,2,0,2,1.0,51,38,6.5,rahway-rahway,Big Central,,,
+Passaic,2,0,2,1.0,62,49,6.5,passaic-passaic,SFC,,,
+Howell,1,0,1,1.0,13,7,6.0,farmingdale-howell,Shore,,,
+Watchung Hills,1,1,2,0.5,26,15,5.5,warren-watchung-hills,Big Central,,,
+Wayne Valley,1,1,2,0.5,41,30,5.5,wayne-wayne-valley,SFC,,,
+River Dell,1,1,2,0.5,45,35,5.0,oradell-river-dell,SFC,,,
+Triton,1,0,1,1.0,20,15,5.0,runnemede-triton,WJFL,,,
+Elmwood Park,1,1,2,0.5,50,41,4.5,elmwood-park-elmwood-park,NJIC,,,
+Westwood,1,1,2,0.5,47,38,4.5,washington-twp-westwood,SFC,,,
+St. Augustine,1,0,1,1.0,24,20,4.0,richland-st-augustine,WJFL,,,
+Lower Cape May,1,1,2,0.5,41,35,3.0,erma-lower-cape-may,WJFL,,,
+Somerville,1,1,2,0.5,54,49,2.5,somerville-somerville,Big Central,,,
+Pennsville,1,1,2,0.5,54,49,2.5,pennsville-pennsville,WJFL,,,
+Waldwick/Midland Park,1,1,2,0.5,69,65,2.0,waldwick-waldwick,NJIC,,,
+Palisades Park/Leonia,1,1,2,0.5,40,38,1.0,palisades-park-palisades-park,NJIC,,,
+Immaculata,1,1,2,0.5,70,68,1.0,somerville-immaculata,SFC,,,
+Bergen Tech,1,1,2,0.5,44,42,1.0,hackensack-bergen-tech,SFC,,,
+Weequahic,1,0,1,1.0,8,7,1.0,newark-weequahic,SFC,,,
+Westfield,1,1,2,0.5,53,52,0.5,westfield-westfield,Big Central,,,
+Montville,1,1,2,0.5,35,34,0.5,montville-montville,SFC,,,
+Teaneck,1,1,2,0.5,48,47,0.5,teaneck-teaneck,SFC,,,
+Shore,1,1,2,0.5,28,27,0.5,w-long-branch-shore,Shore,,,
+Colonia,1,1,2,0.5,37,37,0.0,colonia-colonia,Big Central,,,
+Passaic Tech,1,1,2,0.5,49,49,0.0,wayne-passaic-tech,SFC,,,
+Toms River East,1,1,2,0.5,42,42,0.0,toms-river-toms-river-east,Shore,,,
+Perth Amboy,1,1,2,0.5,53,54,-0.5,perth-amboy-perth-amboy,Big Central,,,
+Johnson,0,1,1,0.0,33,34,-1.0,clark-johnson,Big Central,,,
+Union City,1,1,2,0.5,52,54,-1.0,union-city-union-city,SFC,,,
+Williamstown,1,1,2,0.5,26,28,-1.0,williamstown-williamstown,WJFL,,,
+Buena,0,1,1,0.0,22,23,-1.0,buena-buena,WJFL,,,
+Vineland,1,1,2,0.5,46,48,-1.0,vineland-vineland,WJFL,,,
+North Plainfield,1,1,2,0.5,17,20,-1.5,no-plainfield-north-plainfield,Big Central,,,
+New Egypt,1,1,2,0.5,26,29,-1.5,new-egypt-new-egypt,Shore,,,
+Nutley,0,1,1,0.0,29,31,-2.0,nutley-nutley,SFC,,,
+Willingboro,0,1,1,0.0,28,30,-2.0,willingboro-willingboro,WJFL,,,
+Millburn,1,1,2,0.5,26,31,-2.5,millburn-millburn,SFC,,,
+Parsippany Hills,1,1,2,0.5,36,41,-2.5,morris-plains-parsippany-hills,SFC,,,
+Cedar Creek,0,2,2,0.0,30,35,-2.5,egg-harbor-city-cedar-creek,WJFL,,,
+South Brunswick,1,1,2,0.5,27,33,-3.0,monmouth-jct-south-brunswick,Big Central,,,
+Delran,1,1,2,0.5,24,30,-3.0,delran-delran,WJFL,,,
+Woodstown,1,1,2,0.5,28,34,-3.0,woodstown-woodstown,WJFL,,,
+Newark Central,0,2,2,0.0,14,21,-3.5,newark-newark-central,SFC,,,
+Sterling,1,1,2,0.5,38,45,-3.5,somerdale-sterling,WJFL,,,
+Gov. Livingston,1,1,2,0.5,47,55,-4.0,berkeley-hts-gov-livingston,Big Central,,,
+Ramapo,1,1,2,0.5,39,47,-4.0,franklin-lakes-ramapo,SFC,,,
+St. Joseph (Mont.),0,1,1,0.0,44,48,-4.0,montvale-st-joseph-mont,SFC,,,
+Hillsborough,1,1,2,0.5,46,55,-4.5,hillsborough-hillsborough,Big Central,,,
+Summit,1,1,2,0.5,33,42,-4.5,summit-summit,Big Central,,,
+South Plainfield,1,1,2,0.5,41,50,-4.5,so-plainfield-south-plainfield,Big Central,,,
+Hunterdon Central,0,2,2,0.0,28,38,-5.0,flemington-hunterdon-central,Big Central,,,
+Sayreville,1,1,2,0.5,30,40,-5.0,parlin-sayreville,Big Central,,,
+Dover,0,1,1,0.0,29,34,-5.0,dover-dover,SFC,,,
+Kearny,1,1,2,0.5,40,50,-5.0,kearny-kearny,SFC,,,
+Millville,1,1,2,0.5,49,59,-5.0,millville-millville,WJFL,,,
+Timber Creek,0,2,2,0.0,50,60,-5.0,erial-timber-creek,WJFL,,,
+Weehawken,1,1,2,0.5,24,35,-5.5,weehawken-weehawken,NJIC,,,
+Northern Highlands,0,2,2,0.0,26,38,-6.0,allendale-northern-highlands,SFC,,,
+Pascack Valley,1,1,2,0.5,38,50,-6.0,hillsdale-pascack-valley,SFC,,,
+Fair Lawn,0,1,1,0.0,8,14,-6.0,fair-lawn-fair-lawn,SFC,,,
+West Side,0,1,1,0.0,14,20,-6.0,newark-west-side,SFC,,,
+Camden,1,1,2,0.5,32,44,-6.0,camden-camden,WJFL,,,
+Bernards,0,2,2,0.0,44,57,-6.5,bernardsville-bernards,Big Central,,,
+Manasquan,1,1,2,0.5,26,39,-6.5,manasquan-manasquan,Shore,,,
+Franklin,0,2,2,0.0,35,49,-7.0,somerset-franklin,Big Central,,,
+Clifton,0,1,1,0.0,21,28,-7.0,clifton-clifton,SFC,,,
+Mendham,1,1,2,0.5,40,54,-7.0,mendham-mendham,SFC,,,
+Orange,0,1,1,0.0,0,7,-7.0,orange-orange,SFC,,,
+Matawan,1,1,2,0.5,25,39,-7.0,aberdeen-matawan,Shore,,,
+Cherokee,1,1,2,0.5,42,56,-7.0,marlton-cherokee,WJFL,,,
+Audubon,0,1,1,0.0,21,28,-7.0,audubon-audubon,WJFL,,,
+Palmyra,0,1,1,0.0,8,15,-7.0,palmyra-palmyra,WJFL,,,
+Woodbridge,1,1,2,0.5,21,36,-7.5,woodbridge-woodbridge,Big Central,,,
+Marlboro,1,1,2,0.5,28,43,-7.5,marlboro-marlboro,Shore,,,
+Pleasantville,0,2,2,0.0,20,35,-7.5,pleasantville-pleasantville,WJFL,,,
+Dumont,0,1,1,0.0,22,30,-8.0,dumont-dumont,SFC,,,
+Paramus,0,2,2,0.0,28,44,-8.0,paramus-paramus,SFC,,,
+Pope John,0,1,1,0.0,6,14,-8.0,sparta-pope-john,SFC,,,
+Hawthorne,1,1,2,0.5,36,53,-8.5,hawthorne-hawthorne,NJIC,,,
+Bergen Catholic,0,2,2,0.0,69,86,-8.5,oradell-bergen-catholic,SFC,,,
+Lacey,1,1,2,0.5,18,35,-8.5,lanoka-harbor-lacey,Shore,,,
+Belvidere,1,1,2,0.5,36,54,-9.0,belvidere-belvidere,Big Central,,,
+Becton,1,1,2,0.5,52,70,-9.0,east-rutherford-becton,NJIC,,,
+Bloomfield,1,1,2,0.5,25,43,-9.0,bloomfield-bloomfield,SFC,,,
+Seton Hall Prep,0,2,2,0.0,38,56,-9.0,west-orange-seton-hall-prep,SFC,,,
+Cherry Hill East,0,2,2,0.0,30,48,-9.0,cherry-hill-cherry-hill-east,WJFL,,,
+West Milford,0,2,2,0.0,20,39,-9.5,west-milford-west-milford,SFC,,,
+Paramus Catholic,1,1,2,0.5,49,68,-9.5,paramus-paramus-catholic,SFC,,,
+Barringer,0,1,1,0.0,8,18,-10.0,newark-barringer,SFC,,,
+Overbrook,1,1,2,0.5,40,60,-10.0,pine-hill-overbrook,WJFL,,,
+St. Joseph (Hamm.),1,1,2,0.5,26,46,-10.0,hammonton-st-joseph-hamm,WJFL,,,
+Lawrence,0,2,2,0.0,16,37,-10.5,lawrenceville-lawrence,WJFL,,,
+Hackettstown,1,1,2,0.5,27,49,-11.0,hackettstown-hackettstown,SFC,,,
+Jefferson,0,2,2,0.0,38,61,-11.5,oak-ridge-jefferson,SFC,,,
+Central Regional,0,2,2,0.0,28,51,-11.5,bayville-central-regional,Shore,,,
+Neptune,1,1,2,0.5,38,61,-11.5,neptune-neptune,Shore,,,
+Trenton,0,2,2,0.0,12,35,-11.5,trenton-trenton,WJFL,,,
+Holy Spirit,0,2,2,0.0,29,52,-11.5,absecon-holy-spirit,WJFL,,,
+Pequannock,0,2,2,0.0,38,62,-12.0,pompton-plains-pequannock,SFC,,,
+Wall,1,1,2,0.5,45,69,-12.0,wall-wall,Shore,,,
+Garfield,1,1,2,0.5,40,65,-12.5,garfield-garfield,NJIC,,,
+Montclair,1,1,2,0.5,25,50,-12.5,montclair-montclair,SFC,,,
+Manchester Regional,0,1,1,0.0,14,27,-13.0,haledon-manchester-regional,NJIC,,,
+Bogota,0,2,2,0.0,49,75,-13.0,bogota-bogota,NJIC,,,
+Tenafly,0,1,1,0.0,21,34,-13.0,tenafly-tenafly,SFC,,,
+Atlantic City,0,1,1,0.0,19,32,-13.0,atlantic-city-atlantic-city,WJFL,,,
+Plainfield,0,2,2,0.0,39,66,-13.5,plainfield-plainfield,Big Central,,,
+Park Ridge,0,2,2,0.0,27,54,-13.5,park-ridge-park-ridge,NJIC,,,
+Dunellen,0,1,1,0.0,7,21,-14.0,dunellen-dunellen,Big Central,,,
+Glen Ridge,1,1,2,0.5,20,48,-14.0,glen-ridge-glen-ridge,SFC,,,
+Allentown,0,2,2,0.0,23,51,-14.0,allentown-allentown,WJFL,,,
+Lenape,1,1,2,0.5,26,55,-14.5,medford-lenape,WJFL,,,
+Wallington,1,1,2,0.5,19,50,-15.5,wallington-wallington,NJIC,,,
+St. John Vianney,1,1,2,0.5,42,73,-15.5,holmdel-st-john-vianney,Shore,,,
+Mainland,1,1,2,0.5,13,44,-15.5,linwood-mainland,WJFL,,,
+Cinnaminson,0,2,2,0.0,14,45,-15.5,cinnaminson-cinnaminson,WJFL,,,
+Cumberland,0,2,2,0.0,15,46,-15.5,seabrook-cumberland,WJFL,,,
+North Bergen,0,1,1,0.0,6,22,-16.0,north-bergen-north-bergen,SFC,,,
+Scotch Plains-Fanwood,0,2,2,0.0,34,67,-16.5,scotch-plains-scotch-plains-fanwood,Big Central,,,
+Hopatcong,0,2,2,0.0,28,61,-16.5,hopatcong-hopatcong,SFC,,,
+Middletown South,0,2,2,0.0,41,74,-16.5,middletown-middletown-south,Shore,,,
+Hamilton West,1,1,2,0.5,32,65,-16.5,hamilton-hamilton-west,WJFL,,,
+North Hunterdon,0,2,2,0.0,19,53,-17.0,annandale-north-hunterdon,Big Central,,,
+Red Bank Regional,1,1,2,0.5,21,55,-17.0,little-silver-red-bank-regional,Shore,,,
+Roselle Park,0,2,2,0.0,33,69,-18.0,roselle-park-roselle-park,Big Central,,,
+Highland,0,1,1,0.0,0,18,-18.0,blackwood-highland,WJFL,,,
+Manchester Township,1,1,2,0.5,7,45,-19.0,manchester-manchester-township,Shore,,,
+Princeton,1,1,2,0.5,17,55,-19.0,princeton-princeton,WJFL,,,
+Absegami,0,2,2,0.0,27,66,-19.5,galloway-absegami,WJFL,,,
+Seneca,0,2,2,0.0,20,60,-20.0,tabernacle-seneca,WJFL,,,
 Bridgeton,0,1,1,0.0,14,34,-20.0,bridgeton-bridgeton,WJFL,,,
-Pemberton,0,1,1,0.0,0,20,-20.0,pemberton-pemberton,WJFL,0.4286,0.4484,0.4352
-Edison,0,2,2,0.0,8,49,-20.5,edison-edison,Big Central,0.6667,0.4375,0.5903
-Carteret,1,1,2,0.5,32,73,-20.5,carteret-carteret,Big Central,0.5,0.4745,0.4915
-North Arlington,0,2,2,0.0,12,53,-20.5,north-arlington-north-arlington,NJIC,0.5,0.4452,0.4817
-Delsea,1,1,2,0.5,12,53,-20.5,franklinville-delsea,WJFL,0.6667,0.4977,0.6103
+Pemberton,0,1,1,0.0,0,20,-20.0,pemberton-pemberton,WJFL,,,
+Edison,0,2,2,0.0,8,49,-20.5,edison-edison,Big Central,,,
+Carteret,1,1,2,0.5,32,73,-20.5,carteret-carteret,Big Central,,,
+North Arlington,0,2,2,0.0,12,53,-20.5,north-arlington-north-arlington,NJIC,,,
+Delsea,1,1,2,0.5,12,53,-20.5,franklinville-delsea,WJFL,,,
 Bishop Eustace,0,2,2,0.0,37,78,-20.5,pennsauken-bishop-eustace,WJFL,,,
-Kittatinny,0,1,1,0.0,28,49,-21.0,newton-kittatinny,SFC,0.75,0.3819,0.6273
-Verona,0,2,2,0.0,28,70,-21.0,verona-verona,SFC,0.8125,0.4728,0.6993
-Ocean Township,0,1,1,0.0,0,21,-21.0,oakhurst-ocean-township,Shore,0.5556,0.5252,0.5454
-Colts Neck,0,1,1,0.0,7,28,-21.0,colts-neck-colts-neck,Shore,0.3889,0.4187,0.3988
-Camden,0,1,1,0.0,8,29,-21.0,camden-camden,WJFL,0.5,0.4236,0.4745
+Kittatinny,0,1,1,0.0,28,49,-21.0,newton-kittatinny,SFC,,,
+Verona,0,2,2,0.0,28,70,-21.0,verona-verona,SFC,,,
+Ocean Township,0,1,1,0.0,0,21,-21.0,oakhurst-ocean-township,Shore,,,
+Colts Neck,0,1,1,0.0,7,28,-21.0,colts-neck-colts-neck,Shore,,,
 Florence,0,1,1,0.0,6,28,-22.0,florence-florence,WJFL,,,
-Riverside,0,1,1,0.0,6,28,-22.0,riverside-riverside,WJFL,0.2143,0.4086,0.279
-St. Mary (Ruth.),0,2,2,0.0,6,51,-22.5,rutherford-st-mary-ruth,NJIC,0.5,0.3812,0.4604
-Dickinson,0,1,1,0.0,6,29,-23.0,jersey-city-dickinson,SFC,0.6,0.44,0.5467
-Morristown,0,2,2,0.0,28,76,-24.0,morristown-morristown,SFC,0.6667,0.542,0.6251
-Woodbury,0,1,1,0.0,6,30,-24.0,woodbury-woodbury,WJFL,0.5714,0.4286,0.5238
-Lyndhurst,0,2,2,0.0,14,63,-24.5,lyndhurst-lyndhurst,NJIC,0.6429,0.3968,0.5608
-Madison,0,2,2,0.0,14,65,-25.5,madison-madison,SFC,0.6111,0.4939,0.5721
-Dwight-Morrow,0,1,1,0.0,0,26,-26.0,englewood-dwight-morrow,SFC,0.625,0.3625,0.5375
-KIPP Cooper Norcross Academy,0,1,1,0.0,14,40,-26.0,camden-kipp-cooper-norcross-academy,WJFL,0.3333,0.3079,0.3249
-Asbury Park,0,2,2,0.0,6,59,-26.5,asbury-park-asbury-park,Shore,0.5,0.4076,0.4692
-Middlesex,0,1,1,0.0,0,27,-27.0,middlesex-middlesex,Big Central,0.4375,0.3876,0.4209
-Voorhees,0,2,2,0.0,7,63,-28.0,glen-gardner-voorhees,Big Central,0.5556,0.4597,0.5236
-Cresskill/Emerson Boro,0,1,1,0.0,7,35,-28.0,cresskill-cresskill,NJIC,0.6667,0.377,0.5701
-Saddle Brook,0,1,1,0.0,7,35,-28.0,saddle-brook-saddle-brook,NJIC,0.5714,0.466,0.5363
-Sparta,0,1,1,0.0,7,35,-28.0,sparta-sparta,SFC,0.375,0.4722,0.4074
-Whippany Park,0,1,1,0.0,0,28,-28.0,whippany-whippany-park,SFC,0.625,0.4444,0.5648
-Gloucester,0,2,2,0.0,14,70,-28.0,gloucester-city-gloucester,WJFL,0.6111,0.3672,0.5298
-Wildwood,0,1,1,0.0,0,28,-28.0,wildwood-wildwood,WJFL,0.3125,0.3348,0.3199
-Burlington City,0,2,2,0.0,18,75,-28.5,burlington-burlington-city,WJFL,0.5556,0.3979,0.503
-Robbinsville,0,2,2,0.0,12,69,-28.5,robbinsville-robbinsville,WJFL,0.6667,0.3966,0.5766
-New Brunswick,0,2,2,0.0,0,58,-29.0,new-brunswick-new-brunswick,Big Central,0.6667,0.4342,0.5892
-Pompton Lakes,0,1,1,0.0,20,50,-30.0,pompton-lakes-pompton-lakes,NJIC,0.5714,0.4433,0.5287
-Montgomery,0,2,2,0.0,21,83,-31.0,skillman-montgomery,Big Central,0.4444,0.4992,0.4627
-Snyder,0,1,1,0.0,8,39,-31.0,jersey-city-snyder,SFC,0.3125,0.394,0.3397
-South River,0,2,2,0.0,15,78,-31.5,south-river-south-river,Big Central,0.5556,0.4257,0.5123
-Bound Brook,0,2,2,0.0,12,75,-31.5,bound-brook-bound-brook,Big Central,0.3889,0.404,0.3939
-Hudson Catholic,0,1,1,0.0,8,40,-32.0,jersey-city-hudson-catholic,SFC,0.375,0.345,0.365
-Hackensack,0,1,1,0.0,0,33,-33.0,hackensack-hackensack,SFC,0.5,0.4464,0.4821
-Passaic Valley,0,1,1,0.0,7,41,-34.0,little-falls-passaic-valley,SFC,0.4375,0.3941,0.423
-Sussex Tech,0,2,2,0.0,8,76,-34.0,sparta-sussex-tech,SFC,0.5,0.4354,0.4785
-Collingswood,0,1,1,0.0,6,40,-34.0,collingswood-collingswood,WJFL,0.5,0.4022,0.4674
-Mastery Camden,0,1,1,0.0,6,40,-34.0,camden-mastery-charter,WJFL,0.5,0.3796,0.4599
-Montclair,0,1,1,0.0,7,42,-35.0,montclair-montclair,SFC,0.25,0.4312,0.3104
-West Windsor-Plainsboro,0,2,2,0.0,13,83,-35.0,princeton-jct-west-windsor-plainsboro-south,WJFL,0.5,0.4019,0.4673
-Lincoln,0,1,1,0.0,0,36,-36.0,jersey-city-lincoln,SFC,0.1875,0.3968,0.2573
-Lakewood,0,2,2,0.0,6,81,-37.5,lakewood-lakewood,Shore,0.4375,0.3558,0.4103
-Keansburg,0,1,1,0.0,18,56,-38.0,keansburg-keansburg,Shore,0.375,0.3485,0.3662
-Kinnelon,0,2,2,0.0,10,87,-38.5,kinnelon-kinnelon,SFC,0.6667,0.4724,0.6019
-Hightstown,0,2,2,0.0,24,101,-38.5,hightstown-hightstown,WJFL,0.6111,0.4043,0.5422
-Iselin Kennedy,0,2,2,0.0,13,92,-39.5,iselin-iselin-kennedy,Big Central,0.5,0.4534,0.4845
-Columbia,0,2,2,0.0,0,82,-41.0,maplewood-columbia,SFC,0.5556,0.4286,0.5132
-Freehold Borough,0,2,2,0.0,8,90,-41.0,freehold-freehold-borough,Shore,0.3333,0.3784,0.3484
-Salem,0,1,1,0.0,14,55,-41.0,salem-salem,WJFL,0.5,0.4679,0.4893
-Gloucester Catholic,0,1,1,0.0,0,41,-41.0,gloucester-city-gloucester-catholic,WJFL,0.3571,0.314,0.3428
-Kingsway,0,2,2,0.0,7,90,-41.5,woolwich-twp-kingsway,WJFL,0.6667,0.5554,0.6296
-Secaucus,0,1,1,0.0,0,42,-42.0,secaucus-secaucus,NJIC,0.5,0.4722,0.4907
-Belleville,0,1,1,0.0,6,48,-42.0,belleville-belleville,SFC,0.5,0.3063,0.4354
-Randolph,0,2,2,0.0,12,97,-42.5,randolph-randolph,SFC,0.7222,0.6011,0.6818
-Nottingham,0,2,2,0.0,0,89,-44.5,hamilton-nottingham,WJFL,0.4444,0.4465,0.4451
-Long Branch,0,1,1,0.0,0,47,-47.0,long-branch-long-branch,Shore,0.4,0.4132,0.4044
-Camden Catholic,0,1,1,0.0,0,55,-55.0,cherry-hill-camden-catholic,WJFL,0.375,0.3634,0.3711
-Maple Shade,0,1,1,0.0,6,63,-57.0,maple-shade-maple-shade,WJFL,0.3889,0.2732,0.3503
+Riverside,0,1,1,0.0,6,28,-22.0,riverside-riverside,WJFL,,,
+St. Mary (Ruth.),0,2,2,0.0,6,51,-22.5,rutherford-st-mary-ruth,NJIC,,,
+Dickinson,0,1,1,0.0,6,29,-23.0,jersey-city-dickinson,SFC,,,
+Morristown,0,2,2,0.0,28,76,-24.0,morristown-morristown,SFC,,,
+Woodbury,0,1,1,0.0,6,30,-24.0,woodbury-woodbury,WJFL,,,
+Lyndhurst,0,2,2,0.0,14,63,-24.5,lyndhurst-lyndhurst,NJIC,,,
+Madison,0,2,2,0.0,14,65,-25.5,madison-madison,SFC,,,
+Dwight-Morrow,0,1,1,0.0,0,26,-26.0,englewood-dwight-morrow,SFC,,,
+KIPP Cooper Norcross Academy,0,1,1,0.0,14,40,-26.0,camden-kipp-cooper-norcross-academy,WJFL,,,
+Asbury Park,0,2,2,0.0,6,59,-26.5,asbury-park-asbury-park,Shore,,,
+Middlesex,0,1,1,0.0,0,27,-27.0,middlesex-middlesex,Big Central,,,
+Voorhees,0,2,2,0.0,7,63,-28.0,glen-gardner-voorhees,Big Central,,,
+Cresskill/Emerson Boro,0,1,1,0.0,7,35,-28.0,cresskill-cresskill,NJIC,,,
+Saddle Brook,0,1,1,0.0,7,35,-28.0,saddle-brook-saddle-brook,NJIC,,,
+Sparta,0,1,1,0.0,7,35,-28.0,sparta-sparta,SFC,,,
+Whippany Park,0,1,1,0.0,0,28,-28.0,whippany-whippany-park,SFC,,,
+Gloucester,0,2,2,0.0,14,70,-28.0,gloucester-city-gloucester,WJFL,,,
+Wildwood,0,1,1,0.0,0,28,-28.0,wildwood-wildwood,WJFL,,,
+Burlington City,0,2,2,0.0,18,75,-28.5,burlington-burlington-city,WJFL,,,
+Robbinsville,0,2,2,0.0,12,69,-28.5,robbinsville-robbinsville,WJFL,,,
+New Brunswick,0,2,2,0.0,0,58,-29.0,new-brunswick-new-brunswick,Big Central,,,
+Livingston,0,2,2,0.0,7,66,-29.5,livingston-livingston,SFC,,,
+Pompton Lakes,0,1,1,0.0,20,50,-30.0,pompton-lakes-pompton-lakes,NJIC,,,
+Montgomery,0,2,2,0.0,21,83,-31.0,skillman-montgomery,Big Central,,,
+Snyder,0,1,1,0.0,8,39,-31.0,jersey-city-snyder,SFC,,,
+South River,0,2,2,0.0,15,78,-31.5,south-river-south-river,Big Central,,,
+Bound Brook,0,2,2,0.0,12,75,-31.5,bound-brook-bound-brook,Big Central,,,
+Hudson Catholic,0,1,1,0.0,8,40,-32.0,jersey-city-hudson-catholic,SFC,,,
+Hackensack,0,1,1,0.0,0,33,-33.0,hackensack-hackensack,SFC,,,
+Passaic Valley,0,1,1,0.0,7,41,-34.0,little-falls-passaic-valley,SFC,,,
+Sussex Tech,0,2,2,0.0,8,76,-34.0,sparta-sussex-tech,SFC,,,
+Collingswood,0,1,1,0.0,6,40,-34.0,collingswood-collingswood,WJFL,,,
+Mastery Camden,0,1,1,0.0,6,40,-34.0,camden-mastery-charter,WJFL,,,
+West Windsor-Plainsboro,0,2,2,0.0,13,83,-35.0,princeton-jct-west-windsor-plainsboro-south,WJFL,,,
+Lincoln,0,1,1,0.0,0,36,-36.0,jersey-city-lincoln,SFC,,,
+Lakewood,0,2,2,0.0,6,81,-37.5,lakewood-lakewood,Shore,,,
+Keansburg,0,1,1,0.0,18,56,-38.0,keansburg-keansburg,Shore,,,
+Kinnelon,0,2,2,0.0,10,87,-38.5,kinnelon-kinnelon,SFC,,,
+Hightstown,0,2,2,0.0,24,101,-38.5,hightstown-hightstown,WJFL,,,
+Iselin Kennedy,0,2,2,0.0,13,92,-39.5,iselin-iselin-kennedy,Big Central,,,
+Columbia,0,2,2,0.0,0,82,-41.0,maplewood-columbia,SFC,,,
+Freehold Borough,0,2,2,0.0,8,90,-41.0,freehold-freehold-borough,Shore,,,
+Salem,0,1,1,0.0,14,55,-41.0,salem-salem,WJFL,,,
+Gloucester Catholic,0,1,1,0.0,0,41,-41.0,gloucester-city-gloucester-catholic,WJFL,,,
+Kingsway,0,2,2,0.0,7,90,-41.5,woolwich-twp-kingsway,WJFL,,,
+Secaucus,0,1,1,0.0,0,42,-42.0,secaucus-secaucus,NJIC,,,
+Belleville,0,1,1,0.0,6,48,-42.0,belleville-belleville,SFC,,,
+Randolph,0,2,2,0.0,12,97,-42.5,randolph-randolph,SFC,,,
+Nottingham,0,2,2,0.0,0,89,-44.5,hamilton-nottingham,WJFL,,,
+Long Branch,0,1,1,0.0,0,47,-47.0,long-branch-long-branch,Shore,,,
+Camden Catholic,0,1,1,0.0,0,55,-55.0,cherry-hill-camden-catholic,WJFL,,,
+Maple Shade,0,1,1,0.0,6,63,-57.0,maple-shade-maple-shade,WJFL,,,

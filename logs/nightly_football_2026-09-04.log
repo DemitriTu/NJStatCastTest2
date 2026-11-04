@@ -1,0 +1,5 @@
+﻿[2026-09-04 23:34:25] === Nightly football scrape (2026-2027) ===
+[2026-09-04 23:34:25] Repo: C:\Users\demit\NJStatCastTest2
+[2026-09-04 23:34:25] Log: C:\Users\demit\NJStatCastTest2\logs\nightly_football_2026-09-04.log
+[2026-09-04 23:34:25] START team scraper : py -3 scraper.py --sport football --season 2026-2027
+[2026-09-04 23:34:34] ERROR: Checkpoint: standings saved (SOS not computed yet). If this run is interrupted, use --sos-only to finish SOS.

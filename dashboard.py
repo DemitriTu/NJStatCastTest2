@@ -54,6 +54,9 @@ AVAILABLE_SEASONS: tuple[str, ...] = (
     "2026-2027",
 )
 DEFAULT_UI_SEASON = "2026-2027"
+# Unversioned basketball cache files (data_cache.json / player_data_cache.json)
+# contain the 2025-2026 season, not the current UI default.
+BASKETBALL_LEGACY_CACHE_SEASON = "2025-2026"
 
 
 @dataclass(frozen=True)
@@ -530,34 +533,45 @@ def team_cache_path_for_season(sport: SportPageConfig, season: str) -> Path:
     """Resolve team rankings cache for a season (legacy unversioned file for current)."""
     if sport.key == "basketball":
         versioned = SCRIPT_DIR / f"data_cache_{season}.json"
-        legacy = DATA_CACHE_JSON
-    elif sport.key == "football":
+        if versioned.is_file():
+            return versioned
+        # Legacy data_cache.json is the 2025-2026 scrape, not 2026-2027+.
+        if season == BASKETBALL_LEGACY_CACHE_SEASON and DATA_CACHE_JSON.is_file():
+            return DATA_CACHE_JSON
+        return versioned
+
+    if sport.key == "football":
         versioned = SCRIPT_DIR / f"football_data_cache_{season}.json"
         legacy = FOOTBALL_DATA_CACHE_JSON
-    else:
-        return sport.cache_path
-
-    if versioned.is_file():
+        if versioned.is_file():
+            return versioned
+        if season == DEFAULT_UI_SEASON and legacy.is_file():
+            return legacy
         return versioned
-    if season == DEFAULT_UI_SEASON and legacy.is_file():
-        return legacy
-    return versioned
+
+    return sport.cache_path
 
 
 def player_cache_path_for_season(sport: SportPageConfig, season: str) -> Path | None:
     """Resolve player stats cache for a season; None if sport has no players."""
     if sport.player_cache_path is None:
         return None
+
     if sport.key == "football":
         versioned = SCRIPT_DIR / f"football_player_data_cache_{season}.json"
         legacy = FOOTBALL_PLAYER_DATA_CACHE_JSON
-    else:
-        versioned = SCRIPT_DIR / f"player_data_cache_{season}.json"
-        legacy = PLAYER_DATA_CACHE_JSON
+        if versioned.is_file():
+            return versioned
+        if season == DEFAULT_UI_SEASON and legacy.is_file():
+            return legacy
+        return versioned
+
+    # Basketball: prefer the full legacy 2025-2026 player cache when present.
+    versioned = SCRIPT_DIR / f"player_data_cache_{season}.json"
+    if season == BASKETBALL_LEGACY_CACHE_SEASON and PLAYER_DATA_CACHE_JSON.is_file():
+        return PLAYER_DATA_CACHE_JSON
     if versioned.is_file():
         return versioned
-    if season == DEFAULT_UI_SEASON and legacy.is_file():
-        return legacy
     return versioned
 
 
@@ -615,6 +629,11 @@ COLUMN_HELP: dict[str, tuple[str, str]] = {
     "PPG": ("PPG", "Points per game: PTS ÷ GP."),
     "RPG": ("RPG", "Rebounds per game: REB ÷ GP."),
     "APG": ("APG", "Assists per game: AST ÷ GP."),
+    "Team_Pts_Pct": (
+        "Team Points %",
+        "Share of team points scored by this player: (player PTS ÷ team PF) × 100. "
+        "Uses the same week filter as the player totals when a week is selected.",
+    ),
     "Number": ("#", "Jersey number from the roster."),
     "Stat_Category": ("Category", "Stat table from NJ.com (passing, rushing, receiving, defense)."),
     "Position_Group": ("Pos Group", "Primary position group derived from roster positions."),
@@ -1130,6 +1149,8 @@ def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.1f")
         elif col in ("Win_Pct", "SOS", "Opp_Win_Pct", "Opp_Opp_Win_Pct", "Net", "Conf_Strength"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.4f")
+        elif col == "Team_Pts_Pct":
+            configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.1f%%")
         elif col in ("PPG", "RPG", "APG"):
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.1f")
         else:
@@ -1650,6 +1671,45 @@ def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame |
     return df, payload.get("last_updated")
 
 
+def _team_points_by_slug(
+    teams_df: pd.DataFrame | None,
+    *,
+    week_key: str | None = None,
+) -> dict[str, float]:
+    """Map School_Slug -> team points (season PF, or PF summed for the selected week)."""
+    if teams_df is None or teams_df.empty or "School_Slug" not in teams_df.columns:
+        return {}
+
+    out: dict[str, float] = {}
+    for _, row in teams_df.iterrows():
+        slug = str(row.get("School_Slug") or "").strip()
+        if not slug:
+            continue
+        if week_key:
+            games = row.get("Games")
+            if not isinstance(games, list):
+                continue
+            filtered = _filter_games_by_week(games, week_key)
+            total = 0.0
+            has_pf = False
+            for game in filtered:
+                if not isinstance(game, dict):
+                    continue
+                pf_val = pd.to_numeric(game.get("PF"), errors="coerce")
+                if pd.isna(pf_val):
+                    continue
+                total += float(pf_val)
+                has_pf = True
+            if has_pf:
+                out[slug] = total
+            continue
+
+        pf_val = pd.to_numeric(row.get("PF"), errors="coerce")
+        if pd.notna(pf_val):
+            out[slug] = float(pf_val)
+    return out
+
+
 def _players_frame_from_records(
     players: list[dict],
     teams_df: pd.DataFrame | None = None,
@@ -1659,6 +1719,8 @@ def _players_frame_from_records(
     """Build a ranked player leaderboard from raw player records."""
     if not players:
         return None
+
+    team_points_by_slug = _team_points_by_slug(teams_df, week_key=week_key)
 
     rows: list[dict] = []
     for p in players:
@@ -1689,6 +1751,14 @@ def _players_frame_from_records(
             reb = float(reb) if pd.notna(reb) else None
             ast = float(ast) if pd.notna(ast) else None
 
+        school_slug = str(p.get("School_Slug") or "").strip()
+        team_pf = team_points_by_slug.get(school_slug)
+        team_pts_pct = (
+            round(100.0 * float(pts) / float(team_pf), 1)
+            if pts is not None and team_pf and float(team_pf) > 0
+            else None
+        )
+
         row = {
             "Player": p.get("Name"),
             "Team": p.get("Team"),
@@ -1699,6 +1769,7 @@ def _players_frame_from_records(
             "PTS": int(pts) if pts is not None else None,
             "REB": int(reb) if reb is not None else None,
             "AST": int(ast) if ast is not None else None,
+            "Team_Pts_Pct": team_pts_pct,
         }
         if gp is not None and gp > 0:
             row["PPG"] = round(float(pts) / float(gp), 1) if pts is not None else None
@@ -2221,6 +2292,7 @@ def _render_players_section(
             "REB",
             "AST",
             "PPG",
+            "Team_Pts_Pct",
             "RPG",
             "APG",
         ]
