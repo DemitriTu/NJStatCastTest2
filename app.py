@@ -1,5 +1,7 @@
 """
 NJ Stat Cast — Streamlit multipage app entry.
+
+DO NOT DELETE: py -3 -m streamlit run app.py
 """
 
 from __future__ import annotations
