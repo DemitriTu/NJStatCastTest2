@@ -497,17 +497,55 @@ def _aggregate_player_games(games: list[dict]) -> dict[str, int] | None:
     return {"GP": gp, "PTS": pts, "REB": reb, "AST": ast}
 
 
-def load_raw_players(cache_path: Path | None) -> tuple[list[dict], str | None]:
+def _cache_file_fingerprint(cache_path: Path | None) -> tuple[str, int, int] | None:
+    """Stable cache key for a JSON data file (path + mtime_ns + size)."""
     if cache_path is None or not cache_path.is_file():
-        return [], None
+        return None
     try:
-        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        stat = cache_path.stat()
+    except OSError:
+        return None
+    return (str(cache_path.resolve()), int(stat.st_mtime_ns), int(stat.st_size))
+
+
+@st.cache_data(show_spinner=False)
+def _cached_load_raw_players(
+    path: str, mtime_ns: int, size: int
+) -> tuple[list[dict], str | None]:
+    del mtime_ns, size  # fingerprint inputs only
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return [], None
     players = payload.get("players") or []
     if not isinstance(players, list):
         return [], payload.get("last_updated")
     return [p for p in players if isinstance(p, dict)], payload.get("last_updated")
+
+
+@st.cache_data(show_spinner=False)
+def _cached_annotate_players(
+    path: str, mtime_ns: int, size: int
+) -> tuple[list[dict], str | None]:
+    players, last_updated = _cached_load_raw_players(path, mtime_ns, size)
+    if not players:
+        return [], last_updated
+    return _annotate_player_games(players), last_updated
+
+
+def load_raw_players(cache_path: Path | None) -> tuple[list[dict], str | None]:
+    fp = _cache_file_fingerprint(cache_path)
+    if fp is None:
+        return [], None
+    return _cached_load_raw_players(*fp)
+
+
+def load_annotated_players(cache_path: Path | None) -> tuple[list[dict], str | None]:
+    """Load player cache and attach week labels (cached across reruns)."""
+    fp = _cache_file_fingerprint(cache_path)
+    if fp is None:
+        return [], None
+    return _cached_annotate_players(*fp)
 
 
 def _week_selectbox(
@@ -1058,6 +1096,7 @@ def _logo_cropped_sides(path: str, side_crop: float = 0.2) -> Image.Image:
     return img.crop((left, 0, right, h))
 
 
+@lru_cache(maxsize=1)
 def _logo_png_data_uri() -> str | None:
     if not LOGO_PATH.is_file():
         return None
@@ -1181,7 +1220,11 @@ _SAME_TAB_LINKS_JS = """
 
 
 def _enable_same_tab_in_app_links() -> None:
+    # window.open patch survives Streamlit reruns; skip re-injecting the script.
+    if st.session_state.get("_nj_same_tab_js"):
+        return
     st.html(_SAME_TAB_LINKS_JS, unsafe_allow_javascript=True)
+    st.session_state["_nj_same_tab_js"] = True
 
 
 def _sport_page_url_path(sport: SportPageConfig) -> str:
@@ -1242,10 +1285,14 @@ def _sport_home_url(sport: SportPageConfig) -> str:
 
 
 def _link_column_config(col: str, help_text: str) -> st.column_config.LinkColumn:
+    # LinkColumn sizes from the underlying URL unless width is set explicitly.
+    width = 150 if col == "Player" else 160 if col == "Team" else "medium"
     return st.column_config.LinkColumn(
         COLUMN_HELP.get(col, (col, help_text))[0],
         help=help_text,
         display_text=LINK_COLUMN_DISPLAY_TEXT,
+        width=width,
+        alignment="left",
     )
 
 
@@ -1299,21 +1346,21 @@ def _with_team_game_log_links(
     if df is None or df.empty or "Team" not in df.columns or "School_Slug" not in df.columns:
         return df, linked_cols
     out = df.copy()
-
-    def _team_url(row: pd.Series) -> str:
-        slug = str(row.get("School_Slug") or "").strip()
-        name = str(row.get("Team") or "").strip() or slug
-        if not slug:
-            return name
-        return _game_log_detail_url(
-            sport,
-            view="team",
-            season=season,
-            slug=slug,
-            label=name,
-        )
-
-    out["Team"] = out.apply(_team_url, axis=1)
+    slugs = out["School_Slug"].fillna("").astype(str).str.strip()
+    names = out["Team"].fillna("").astype(str).str.strip()
+    names = names.where(names.ne(""), slugs)
+    base = (
+        f"{_sport_page_url_path(sport)}?view=team"
+        f"&season={quote(season, safe='')}"
+        f"&slug="
+    )
+    urls = (
+        base
+        + slugs.map(lambda s: quote(s, safe=""))
+        + "&label="
+        + names.map(lambda s: quote(s, safe=""))
+    )
+    out["Team"] = urls.where(slugs.ne(""), names)
     if _series_all_app_links(out["Team"]):
         linked_cols.add("Team")
     return out, linked_cols
@@ -1339,20 +1386,27 @@ def _with_player_game_log_links(
             and has_slug.fillna("").astype(str).str.strip().ne("").all()
         )
         if can_link_players:
-            def _player_url(row: pd.Series) -> str:
-                slug = str(row.get("Player_Slug") or "").strip()
-                name = str(row.get("Player") or "").strip() or slug
-                category = str(row.get("Stat_Category") or "").strip() or None
-                return _game_log_detail_url(
-                    sport,
-                    view="player",
-                    season=season,
-                    slug=slug,
-                    label=name,
-                    category=category,
+            slugs = out["Player_Slug"].fillna("").astype(str).str.strip()
+            names = out["Player"].fillna("").astype(str).str.strip()
+            names = names.where(names.ne(""), slugs)
+            base = (
+                f"{_sport_page_url_path(sport)}?view=player"
+                f"&season={quote(season, safe='')}"
+                f"&slug="
+            )
+            urls = (
+                base
+                + slugs.map(lambda s: quote(s, safe=""))
+                + "&label="
+                + names.map(lambda s: quote(s, safe=""))
+            )
+            if "Stat_Category" in out.columns:
+                cats = out["Stat_Category"].fillna("").astype(str).str.strip()
+                urls = urls.where(
+                    cats.eq(""),
+                    urls + "&category=" + cats.map(lambda s: quote(s, safe="")),
                 )
-
-            out["Player"] = out.apply(_player_url, axis=1)
+            out["Player"] = urls
             linked_cols.add("Player")
 
     if link_team and "Team" in out.columns and "School_Slug" in out.columns:
@@ -1856,11 +1910,13 @@ def _format_timestamp(ts: str | None) -> str:
         return ts
 
 
-def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame | None, str | None]:
-    if not cache_path.is_file():
-        return None, None
+@st.cache_data(show_spinner=False)
+def _cached_load_teams(
+    path: str, mtime_ns: int, size: int
+) -> tuple[pd.DataFrame | None, str | None]:
+    del mtime_ns, size  # fingerprint inputs only
     try:
-        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None, None
     teams = payload.get("teams")
@@ -1874,6 +1930,61 @@ def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame |
     return df, payload.get("last_updated")
 
 
+@st.cache_data(show_spinner=False)
+def _cached_teams_with_weeks(
+    team_path: str,
+    team_mtime_ns: int,
+    team_size: int,
+    player_path: str,
+    player_mtime_ns: int,
+    player_size: int,
+    use_player_dates: bool,
+) -> tuple[pd.DataFrame | None, str | None]:
+    """Teams frame with Week_Key labels attached (cached)."""
+    df, last_updated = _cached_load_teams(team_path, team_mtime_ns, team_size)
+    if df is None:
+        return None, last_updated
+    players: list[dict] = []
+    if use_player_dates and player_path:
+        players, _ = _cached_load_raw_players(
+            player_path, player_mtime_ns, player_size
+        )
+    # Raw player dates are enough for team calendar weeks; skip full player annotate.
+    df = _annotate_teams_dataframe_weeks(df, players if use_player_dates else None)
+    return df, last_updated
+
+
+def load_cached_data(cache_path: Path = DATA_CACHE_JSON) -> tuple[pd.DataFrame | None, str | None]:
+    fp = _cache_file_fingerprint(cache_path)
+    if fp is None:
+        return None, None
+    return _cached_load_teams(*fp)
+
+
+def load_teams_with_weeks(
+    sport: SportPageConfig,
+    teams_cache: Path,
+    players_cache: Path | None,
+) -> tuple[pd.DataFrame | None, str | None]:
+    """Load ranked teams and attach week labels for the UI week filter."""
+    team_fp = _cache_file_fingerprint(teams_cache)
+    if team_fp is None:
+        return None, None
+    player_fp = _cache_file_fingerprint(players_cache)
+    use_player_dates = sport.key == "basketball" and player_fp is not None
+    if player_fp is None:
+        player_fp = ("", 0, 0)
+    return _cached_teams_with_weeks(
+        team_fp[0],
+        team_fp[1],
+        team_fp[2],
+        player_fp[0],
+        player_fp[1],
+        player_fp[2],
+        use_player_dates,
+    )
+
+
 def _team_points_by_slug(
     teams_df: pd.DataFrame | None,
     *,
@@ -1883,33 +1994,33 @@ def _team_points_by_slug(
     if teams_df is None or teams_df.empty or "School_Slug" not in teams_df.columns:
         return {}
 
+    if not week_key and "PF" in teams_df.columns:
+        slugs = teams_df["School_Slug"].fillna("").astype(str).str.strip()
+        pfs = pd.to_numeric(teams_df["PF"], errors="coerce")
+        mask = slugs.ne("") & pfs.notna()
+        return dict(zip(slugs[mask].tolist(), pfs[mask].astype(float).tolist()))
+
     out: dict[str, float] = {}
     for _, row in teams_df.iterrows():
         slug = str(row.get("School_Slug") or "").strip()
         if not slug:
             continue
-        if week_key:
-            games = row.get("Games")
-            if not isinstance(games, list):
-                continue
-            filtered = _filter_games_by_week(games, week_key)
-            total = 0.0
-            has_pf = False
-            for game in filtered:
-                if not isinstance(game, dict):
-                    continue
-                pf_val = pd.to_numeric(game.get("PF"), errors="coerce")
-                if pd.isna(pf_val):
-                    continue
-                total += float(pf_val)
-                has_pf = True
-            if has_pf:
-                out[slug] = total
+        games = row.get("Games")
+        if not isinstance(games, list):
             continue
-
-        pf_val = pd.to_numeric(row.get("PF"), errors="coerce")
-        if pd.notna(pf_val):
-            out[slug] = float(pf_val)
+        filtered = _filter_games_by_week(games, week_key)
+        total = 0.0
+        has_pf = False
+        for game in filtered:
+            if not isinstance(game, dict):
+                continue
+            pf_val = pd.to_numeric(game.get("PF"), errors="coerce")
+            if pd.isna(pf_val):
+                continue
+            total += float(pf_val)
+            has_pf = True
+        if has_pf:
+            out[slug] = total
     return out
 
 
@@ -2018,11 +2129,12 @@ def load_cached_players(
     week_key: str | None = None,
 ) -> tuple[pd.DataFrame | None, str | None]:
     """Flatten player_data_cache.json into a season or weekly leaderboard frame."""
-    players, last_updated = load_raw_players(cache_path)
+    if week_key:
+        players, last_updated = load_annotated_players(cache_path)
+    else:
+        players, last_updated = load_raw_players(cache_path)
     if not players:
         return None, last_updated
-    if week_key:
-        players = _annotate_player_games(players)
     pdf = _players_frame_from_records(players, teams_df, week_key=week_key)
     return pdf, last_updated
 
@@ -2297,8 +2409,7 @@ def _render_football_players_section(
     players = annotated_players
     last_updated = None
     if players is None:
-        players, last_updated = load_raw_players(player_cache)
-        players = _annotate_player_games(players) if players else []
+        players, last_updated = load_annotated_players(player_cache)
     if not players:
         st.info(
             f"No player data found for {season}. Run the football player scraper with "
@@ -2430,8 +2541,7 @@ def _render_players_section(
     players = annotated_players
     last_updated = None
     if players is None:
-        raw_players, last_updated = load_raw_players(player_cache)
-        players = _annotate_player_games(raw_players) if raw_players else []
+        players, last_updated = load_annotated_players(player_cache)
     if not players:
         st.info(
             f"No player data found for {season}. Run the player scraper with "
@@ -2722,19 +2832,12 @@ def render_team_game_log(
     label: str | None = None,
 ) -> None:
     teams_cache = team_cache_path_for_season(sport, season)
-    df, last_updated = load_cached_data(teams_cache)
+    players_cache = player_cache_path_for_season(sport, season)
+    df, last_updated = load_teams_with_weeks(sport, teams_cache, players_cache)
     if df is None or df.empty:
         st.info(f"No {sport.label.lower()} team data found for {season}.")
         _render_game_log_back_link(sport)
         return
-
-    players_cache = player_cache_path_for_season(sport, season)
-    raw_players, _ = load_raw_players(players_cache)
-    annotated_players = _annotate_player_games(raw_players) if raw_players else []
-    if sport.key == "basketball":
-        df = _annotate_teams_dataframe_weeks(df, annotated_players)
-    else:
-        df = _annotate_teams_dataframe_weeks(df, None)
 
     matches = df[df["School_Slug"].astype(str) == school_slug]
     if matches.empty:
@@ -2747,9 +2850,11 @@ def render_team_game_log(
     conference = team_row.get("Conference")
     games = team_row.get("Games") if isinstance(team_row.get("Games"), list) else []
     # Existing caches often lack Home; fill from player game logs when available.
+    # Raw players are enough for Home/Away enrichment (cached JSON load).
+    raw_players, _ = load_raw_players(players_cache)
     games = _enrich_team_games_home(
         games,
-        home_by_opponent=_home_by_opponent_from_players(annotated_players, school_slug),
+        home_by_opponent=_home_by_opponent_from_players(raw_players, school_slug),
     )
 
     _render_game_log_back_link(sport)
@@ -2783,8 +2888,7 @@ def render_player_game_log(
     category: str | None = None,
 ) -> None:
     players_cache = player_cache_path_for_season(sport, season)
-    raw_players, last_updated = load_raw_players(players_cache)
-    players = _annotate_player_games(raw_players) if raw_players else []
+    players, last_updated = load_annotated_players(players_cache)
     matches = [
         p
         for p in players
@@ -2912,7 +3016,7 @@ def render_sport_page(sport: SportPageConfig) -> None:
     teams_cache = team_cache_path_for_season(sport, season)
     players_cache = player_cache_path_for_season(sport, season)
 
-    df, last_updated = load_cached_data(teams_cache)
+    df, last_updated = load_teams_with_weeks(sport, teams_cache, players_cache)
     st.markdown(
         f'<p class="nj-last-updated">Last updated {_format_timestamp(last_updated)}</p>',
         unsafe_allow_html=True,
@@ -2936,108 +3040,20 @@ def render_sport_page(sport: SportPageConfig) -> None:
         )
         return
 
-    raw_players, _player_updated = load_raw_players(players_cache)
-    if sport.key == "basketball":
-        annotated_players = _annotate_player_games(raw_players) if raw_players else []
-        df = _annotate_teams_dataframe_weeks(df, annotated_players)
-    else:
-        annotated_players = _annotate_player_games(raw_players) if raw_players else []
-        df = _annotate_teams_dataframe_weeks(df, None)
-    team_week_labels, team_week_label_to_key = _week_options_from_teams_df(df)
+    section = st.segmented_control(
+        "Section",
+        options=["Teams", "Players"],
+        default="Teams",
+        key=f"section_{sport.key}_{season_suffix}",
+        label_visibility="collapsed",
+    )
+    if section is None:
+        section = "Teams"
 
-    teams_tab, players_tab = st.tabs(["Teams", "Players"])
-
-    with teams_tab:
-        if "Conference" in df.columns:
-            conferences = sorted(
-                c for c in df["Conference"].dropna().astype(str).unique() if c.strip()
-            )
-        else:
-            conferences = []
-
-        filter_col, week_col, metric_col = st.columns([2, 2, 1])
-        with filter_col:
-            selected = st.selectbox(
-                "Conference",
-                options=[ALL_CONFERENCES] + conferences,
-                index=0,
-                key=f"conference_{sport.key}_{season_suffix}",
-            )
-        with week_col:
-            week_key = _week_selectbox(
-                labels=team_week_labels,
-                label_to_key=team_week_label_to_key,
-                widget_key=f"team_week_{sport.key}_{season_suffix}",
-            )
-
-        week_df = _teams_dataframe_for_week(df, week_key)
-        with metric_col:
-            view = _filter_and_rank(week_df, selected)
-            st.metric("Teams", len(view))
-
-        leaderboard_desc = (
-            "Sorted by Net within the selected week and conference view."
-            if week_key
-            else "Sorted by Net within the selected view."
-        )
-        st.markdown(
-            f'<p class="nj-section-title">Leaderboard</p>'
-            f'<p class="nj-section-desc">{leaderboard_desc}</p>',
-            unsafe_allow_html=True,
-        )
-
-        display_cols = [
-            c
-            for c in [
-                "Rank",
-                "Net",
-                "Team",
-                "Conference",
-                "Conf_Strength",
-                "GP",
-                "Win_Pct",
-                "PF",
-                "PA",
-                "Pace",
-                "Avg_Margin",
-                "SOS",
-            ]
-            if c in view.columns
-        ]
-        if view.empty and selected != ALL_CONFERENCES:
-            st.warning(f"No teams found for conference: {selected}")
-        elif view.empty and week_key:
-            st.warning("No teams found for the selected week.")
-        if view.empty:
-            linked_view, link_cols = view, set()
-        else:
-            linked_view, link_cols = _with_team_game_log_links(view, sport, season)
-        table = linked_view[display_cols] if not linked_view.empty else linked_view
-        st.dataframe(
-            table,
-            use_container_width=True,
-            hide_index=True,
-            column_config=_leaderboard_column_config(
-                display_cols,
-                link_cols=link_cols,
-            ),
-        )
-
-        if not view.empty:
-            week_suffix = week_key or "full"
-            _render_scatter_section(view, f"{sport.key}_{season_suffix}_{week_suffix}")
-
-        conf_chart = _conference_strength_chart_df(week_df if week_key else df)
-        if conf_chart is not None:
-            st.divider()
-            st.markdown(
-                '<p class="nj-section-title">Conference strength</p>'
-                '<p class="nj-section-desc">Average statewide win% by conference.</p>',
-                unsafe_allow_html=True,
-            )
-            _render_conference_strength_chart(conf_chart)
-
-    with players_tab:
+    if section == "Players":
+        # Heavy player annotate (~2s cold) only runs when this section is open,
+        # and is cached across reruns afterward.
+        annotated_players, _player_updated = load_annotated_players(players_cache)
         _render_players_section(
             sport,
             df,
@@ -3045,6 +3061,98 @@ def render_sport_page(sport: SportPageConfig) -> None:
             player_cache=players_cache,
             annotated_players=annotated_players,
         )
+        return
+
+    team_week_labels, team_week_label_to_key = _week_options_from_teams_df(df)
+
+    if "Conference" in df.columns:
+        conferences = sorted(
+            c for c in df["Conference"].dropna().astype(str).unique() if c.strip()
+        )
+    else:
+        conferences = []
+
+    filter_col, week_col, metric_col = st.columns([2, 2, 1])
+    with filter_col:
+        selected = st.selectbox(
+            "Conference",
+            options=[ALL_CONFERENCES] + conferences,
+            index=0,
+            key=f"conference_{sport.key}_{season_suffix}",
+        )
+    with week_col:
+        week_key = _week_selectbox(
+            labels=team_week_labels,
+            label_to_key=team_week_label_to_key,
+            widget_key=f"team_week_{sport.key}_{season_suffix}",
+        )
+
+    week_df = _teams_dataframe_for_week(df, week_key)
+    with metric_col:
+        view = _filter_and_rank(week_df, selected)
+        st.metric("Teams", len(view))
+
+    leaderboard_desc = (
+        "Sorted by Net within the selected week and conference view."
+        if week_key
+        else "Sorted by Net within the selected view."
+    )
+    st.markdown(
+        f'<p class="nj-section-title">Leaderboard</p>'
+        f'<p class="nj-section-desc">{leaderboard_desc}</p>',
+        unsafe_allow_html=True,
+    )
+
+    display_cols = [
+        c
+        for c in [
+            "Rank",
+            "Net",
+            "Team",
+            "Conference",
+            "Conf_Strength",
+            "GP",
+            "Win_Pct",
+            "PF",
+            "PA",
+            "Pace",
+            "Avg_Margin",
+            "SOS",
+        ]
+        if c in view.columns
+    ]
+    if view.empty and selected != ALL_CONFERENCES:
+        st.warning(f"No teams found for conference: {selected}")
+    elif view.empty and week_key:
+        st.warning("No teams found for the selected week.")
+    if view.empty:
+        linked_view, link_cols = view, set()
+    else:
+        linked_view, link_cols = _with_team_game_log_links(view, sport, season)
+    table = linked_view[display_cols] if not linked_view.empty else linked_view
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+        column_config=_leaderboard_column_config(
+            display_cols,
+            link_cols=link_cols,
+        ),
+    )
+
+    if not view.empty:
+        week_suffix = week_key or "full"
+        _render_scatter_section(view, f"{sport.key}_{season_suffix}_{week_suffix}")
+
+    conf_chart = _conference_strength_chart_df(week_df if week_key else df)
+    if conf_chart is not None:
+        st.divider()
+        st.markdown(
+            '<p class="nj-section-title">Conference strength</p>'
+            '<p class="nj-section-desc">Average statewide win% by conference.</p>',
+            unsafe_allow_html=True,
+        )
+        _render_conference_strength_chart(conf_chart)
 
 
 def render_basketball_page() -> None:
