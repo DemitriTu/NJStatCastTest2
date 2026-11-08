@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 import base64
 
 import pandas as pd
@@ -1129,14 +1130,140 @@ def _minmax_normalize(series: pd.Series) -> pd.Series:
     return ((series - lo) / (hi - lo)).fillna(0.0)
 
 
-def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config.Column]:
+LINK_COLUMN_DISPLAY_TEXT = r"[?&]label=([^&]*)"
+GAME_LOG_LINK_COLS = frozenset({"Team", "Player"})
+
+# Streamlit LinkColumn opens via window.open(url, "_blank"), not a normal <a> click.
+# Patch window.open in the main page (via st.html) so in-app game-log URLs stay
+# in the same tab. Do NOT use components.html — that iframe is sandboxed and
+# location changes from a patched open are ignored (clicks appear to do nothing).
+_SAME_TAB_LINKS_JS = """
+<script>
+(function () {
+  function isInAppGameLogUrl(url) {
+    const href = String(url || "");
+    return href.indexOf("view=") !== -1 && href.indexOf("slug=") !== -1;
+  }
+
+  function navigateSameTab(url) {
+    const abs = new URL(String(url), window.location.href).href;
+    window.location.assign(abs);
+  }
+
+  if (!window.__njOpenPatched) {
+    window.__njOpenPatched = true;
+    const originalOpen = window.open.bind(window);
+    window.open = function (url, target, features) {
+      if (isInAppGameLogUrl(url)) {
+        navigateSameTab(url);
+        return null;
+      }
+      return originalOpen(url, target, features);
+    };
+  }
+
+  function retargetAnchors() {
+    document.querySelectorAll('a[href*="view="][href*="slug="], a.nj-same-tab').forEach(function (a) {
+      if (a.getAttribute("target") !== "_self") {
+        a.setAttribute("target", "_self");
+        a.removeAttribute("rel");
+      }
+    });
+  }
+  retargetAnchors();
+  if (!window.__njSameTabObs) {
+    window.__njSameTabObs = new MutationObserver(retargetAnchors);
+    window.__njSameTabObs.observe(document.body, { childList: true, subtree: true });
+  }
+})();
+</script>
+"""
+
+
+def _enable_same_tab_in_app_links() -> None:
+    st.html(_SAME_TAB_LINKS_JS, unsafe_allow_javascript=True)
+
+
+def _sport_page_url_path(sport: SportPageConfig) -> str:
+    """URL path for sport pages registered in app.py st.navigation (url_path=sport.key)."""
+    return f"/{sport.key}"
+
+
+def _query_param_first(key: str) -> str | None:
+    value = st.query_params.get(key)
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return None
+        value = value[0]
+    text = str(value).strip()
+    return text or None
+
+
+def _read_game_log_query() -> dict[str, str | None]:
+    return {
+        "view": _query_param_first("view"),
+        "season": _query_param_first("season"),
+        "slug": _query_param_first("slug"),
+        "label": _query_param_first("label"),
+        "category": _query_param_first("category"),
+    }
+
+
+def _game_log_detail_url(
+    sport: SportPageConfig,
+    *,
+    view: str,
+    season: str,
+    slug: str,
+    label: str,
+    category: str | None = None,
+) -> str:
+    """Relative URL for LinkColumn; label is embedded for display_text capture."""
+
+    def _enc(value: object) -> str:
+        # Fully encode; LinkColumn display_text decodes the label capture group.
+        return quote(str(value), safe="")
+
+    parts = [
+        f"view={_enc(view)}",
+        f"season={_enc(season)}",
+        f"slug={_enc(slug)}",
+        f"label={_enc(label)}",
+    ]
+    if category:
+        parts.append(f"category={_enc(category)}")
+    return f"{_sport_page_url_path(sport)}?{'&'.join(parts)}"
+
+
+def _sport_home_url(sport: SportPageConfig) -> str:
+    return _sport_page_url_path(sport)
+
+
+def _link_column_config(col: str, help_text: str) -> st.column_config.LinkColumn:
+    return st.column_config.LinkColumn(
+        COLUMN_HELP.get(col, (col, help_text))[0],
+        help=help_text,
+        display_text=LINK_COLUMN_DISPLAY_TEXT,
+    )
+
+
+def _leaderboard_column_config(
+    columns: list[str],
+    *,
+    link_cols: frozenset[str] | set[str] | None = None,
+) -> dict[str, st.column_config.Column]:
+    linked = link_cols or frozenset()
     configs: dict[str, st.column_config.Column] = {}
     for col in columns:
         meta = COLUMN_HELP.get(col)
         if not meta:
             continue
         label, help_text = meta
-        if col in ("Team", "Conference", "Player", "Class", "Positions", "Stat_Category", "Position_Group", "Specialty"):
+        if col in linked and col in GAME_LOG_LINK_COLS:
+            configs[col] = _link_column_config(col, help_text)
+        elif col in ("Team", "Conference", "Player", "Class", "Positions", "Stat_Category", "Position_Group", "Specialty"):
             configs[col] = st.column_config.TextColumn(label, help=help_text)
         elif col == "Rank":
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%d")
@@ -1156,6 +1283,82 @@ def _leaderboard_column_config(columns: list[str]) -> dict[str, st.column_config
         else:
             configs[col] = st.column_config.NumberColumn(label, help=help_text, format="%.3f")
     return configs
+
+
+def _series_all_app_links(series: pd.Series) -> bool:
+    values = series.dropna().astype(str)
+    return (not values.empty) and bool(values.str.startswith("/").all())
+
+
+def _with_team_game_log_links(
+    df: pd.DataFrame,
+    sport: SportPageConfig,
+    season: str,
+) -> tuple[pd.DataFrame, set[str]]:
+    linked_cols: set[str] = set()
+    if df is None or df.empty or "Team" not in df.columns or "School_Slug" not in df.columns:
+        return df, linked_cols
+    out = df.copy()
+
+    def _team_url(row: pd.Series) -> str:
+        slug = str(row.get("School_Slug") or "").strip()
+        name = str(row.get("Team") or "").strip() or slug
+        if not slug:
+            return name
+        return _game_log_detail_url(
+            sport,
+            view="team",
+            season=season,
+            slug=slug,
+            label=name,
+        )
+
+    out["Team"] = out.apply(_team_url, axis=1)
+    if _series_all_app_links(out["Team"]):
+        linked_cols.add("Team")
+    return out, linked_cols
+
+
+def _with_player_game_log_links(
+    df: pd.DataFrame,
+    sport: SportPageConfig,
+    season: str,
+    *,
+    link_team: bool = True,
+) -> tuple[pd.DataFrame, set[str]]:
+    """Return frame with name URLs and the set of columns that are linkable."""
+    linked_cols: set[str] = set()
+    if df is None or df.empty:
+        return df, linked_cols
+    out = df.copy()
+
+    if "Player" in out.columns:
+        has_slug = out.get("Player_Slug")
+        can_link_players = (
+            has_slug is not None
+            and has_slug.fillna("").astype(str).str.strip().ne("").all()
+        )
+        if can_link_players:
+            def _player_url(row: pd.Series) -> str:
+                slug = str(row.get("Player_Slug") or "").strip()
+                name = str(row.get("Player") or "").strip() or slug
+                category = str(row.get("Stat_Category") or "").strip() or None
+                return _game_log_detail_url(
+                    sport,
+                    view="player",
+                    season=season,
+                    slug=slug,
+                    label=name,
+                    category=category,
+                )
+
+            out["Player"] = out.apply(_player_url, axis=1)
+            linked_cols.add("Player")
+
+    if link_team and "Team" in out.columns and "School_Slug" in out.columns:
+        out, team_links = _with_team_game_log_links(out, sport, season)
+        linked_cols |= team_links
+    return out, linked_cols
 
 
 def _is_nj_game(game: object) -> bool:
@@ -1761,6 +1964,7 @@ def _players_frame_from_records(
 
         row = {
             "Player": p.get("Name"),
+            "Player_Slug": p.get("Player_Slug"),
             "Team": p.get("Team"),
             "School_Slug": p.get("School_Slug"),
             "Class": p.get("Class"),
@@ -1997,6 +2201,7 @@ def _football_players_frame_from_records(
 
         row: dict[str, object] = {
             "Player": player.get("Name"),
+            "Player_Slug": player.get("Player_Slug"),
             "Number": player.get("Number"),
             "Team": player.get("Team"),
             "School_Slug": player.get("School_Slug"),
@@ -2181,12 +2386,21 @@ def _render_football_players_section(
     display_cols = [c for c in _football_display_columns(selected_stat) if c in view.columns]
     if view.empty and selected_conf != ALL_CONFERENCES:
         st.warning(f"No players found for conference: {selected_conf}")
-    table = view[display_cols] if not view.empty else view
+    if view.empty:
+        linked_view, link_cols = view, set()
+    else:
+        linked_view, link_cols = _with_player_game_log_links(
+            view, sport, season, link_team=True
+        )
+    table = linked_view[display_cols] if not linked_view.empty else linked_view
     st.dataframe(
         table,
         use_container_width=True,
         hide_index=True,
-        column_config=_leaderboard_column_config(display_cols),
+        column_config=_leaderboard_column_config(
+            display_cols,
+            link_cols=link_cols,
+        ),
     )
     _ = last_updated
 
@@ -2300,12 +2514,21 @@ def _render_players_section(
     ]
     if view.empty and selected != ALL_CONFERENCES:
         st.warning(f"No players found for conference: {selected}")
-    table = view[display_cols] if not view.empty else view
+    if view.empty:
+        linked_view, link_cols = view, set()
+    else:
+        linked_view, link_cols = _with_player_game_log_links(
+            view, sport, season, link_team=True
+        )
+    table = linked_view[display_cols] if not linked_view.empty else linked_view
     st.dataframe(
         table,
         use_container_width=True,
         hide_index=True,
-        column_config=_leaderboard_column_config(display_cols),
+        column_config=_leaderboard_column_config(
+            display_cols,
+            link_cols=link_cols,
+        ),
     )
     _ = last_updated
 
@@ -2319,7 +2542,336 @@ def _filter_and_rank(df: pd.DataFrame, conference: str | None) -> pd.DataFrame:
     return _rank_by_net(view)
 
 
+def _game_result_label(game: dict) -> str | None:
+    result = game.get("Result")
+    if result:
+        return str(result)
+    won = game.get("Won")
+    pf = game.get("PF")
+    pa = game.get("PA")
+    if won is None and pf is None and pa is None:
+        return None
+    if won is True:
+        prefix = "W"
+    elif won is False:
+        prefix = "L"
+    else:
+        prefix = ""
+    if pf is not None and pa is not None:
+        score = f"{pf}-{pa}"
+        return f"{prefix} {score}".strip()
+    return prefix or None
+
+
+def _location_label(home: object) -> str | None:
+    if home is True:
+        return "Home"
+    if home is False:
+        return "Away"
+    return None
+
+
+def _home_by_opponent_from_players(
+    players: list[dict],
+    school_slug: str,
+) -> dict[str, bool]:
+    """Map normalized opponent name -> Home flag from player game logs."""
+    out: dict[str, bool] = {}
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        if str(player.get("School_Slug") or "").strip() != school_slug:
+            continue
+        for game in player.get("Games") or []:
+            if not isinstance(game, dict):
+                continue
+            home = game.get("Home")
+            if home is not True and home is not False:
+                continue
+            opp = _norm_opponent_name(game.get("Opponent"))
+            if opp and opp not in out:
+                out[opp] = bool(home)
+    return out
+
+
+def _enrich_team_games_home(
+    games: list,
+    *,
+    home_by_opponent: dict[str, bool] | None = None,
+) -> list[dict]:
+    """Fill missing Home flags from player logs (or leave unchanged)."""
+    enriched: list[dict] = []
+    lookup = home_by_opponent or {}
+    for raw in games:
+        if not isinstance(raw, dict):
+            continue
+        game = dict(raw)
+        if game.get("Home") is not True and game.get("Home") is not False:
+            opp = _norm_opponent_name(game.get("Opponent"))
+            if opp in lookup:
+                game["Home"] = lookup[opp]
+        enriched.append(game)
+    return enriched
+
+
+def _team_games_frame(games: list) -> pd.DataFrame:
+    rows: list[dict] = []
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        row = {
+            "Date": game.get("Date"),
+            "Opponent": game.get("Opponent"),
+            "Location": _location_label(game.get("Home")),
+            "Result": _game_result_label(game),
+            "PF": game.get("PF"),
+            "PA": game.get("PA"),
+            "Margin": game.get("Margin"),
+            "Week": game.get("Week"),
+        }
+        rows.append(row)
+    if not rows:
+        return pd.DataFrame()
+    pdf = pd.DataFrame(rows)
+    # Drop Location only when entirely unknown.
+    if "Location" in pdf.columns and pdf["Location"].isna().all():
+        pdf = pdf.drop(columns=["Location"])
+    return pdf
+
+
+def _player_games_frame(games: list, *, category: str | None = None) -> pd.DataFrame:
+    rows: list[dict] = []
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        row = dict(game)
+        if category:
+            row.setdefault("Stat_Category", category)
+        if "Result" not in row or row.get("Result") is None:
+            row["Result"] = _game_result_label(game)
+        rows.append(row)
+    if not rows:
+        return pd.DataFrame()
+    pdf = pd.DataFrame(rows)
+    preferred = [
+        "Date",
+        "Opponent",
+        "Home",
+        "Result",
+        "Stat_Category",
+        "Week",
+        "PTS",
+        "REB",
+        "AST",
+        "BLK",
+        "STL",
+        "2PT",
+        "3PT",
+        "FTM",
+        "FTA",
+        "GP",
+        "COMP",
+        "ATT",
+        "YDS",
+        "TD",
+        "INT",
+        "LNG",
+        "REC",
+        "S",
+        "TFL",
+        "T_SOLO",
+        "T_AST",
+        "T_TOT",
+        "FF",
+        "FR",
+        "FGM",
+        "FGA",
+        "FG_LNG",
+        "XPM",
+        "XPA",
+        "PUNTS",
+        "IN_20",
+        "PF",
+        "PA",
+        "Margin",
+    ]
+    hide = {"Week_Key"}
+    cols: list[str] = []
+    for col in preferred:
+        if col in pdf.columns and col not in cols and col not in hide:
+            cols.append(col)
+    for col in pdf.columns:
+        if col not in cols and col not in hide:
+            cols.append(str(col))
+    return pdf.loc[:, cols]
+
+
+def _render_game_log_back_link(sport: SportPageConfig) -> None:
+    st.markdown(
+        f'<a class="nj-same-tab" href="{_sport_home_url(sport)}" target="_self">'
+        f"← Back to {sport.label} rankings</a>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_team_game_log(
+    sport: SportPageConfig,
+    *,
+    season: str,
+    school_slug: str,
+    label: str | None = None,
+) -> None:
+    teams_cache = team_cache_path_for_season(sport, season)
+    df, last_updated = load_cached_data(teams_cache)
+    if df is None or df.empty:
+        st.info(f"No {sport.label.lower()} team data found for {season}.")
+        _render_game_log_back_link(sport)
+        return
+
+    players_cache = player_cache_path_for_season(sport, season)
+    raw_players, _ = load_raw_players(players_cache)
+    annotated_players = _annotate_player_games(raw_players) if raw_players else []
+    if sport.key == "basketball":
+        df = _annotate_teams_dataframe_weeks(df, annotated_players)
+    else:
+        df = _annotate_teams_dataframe_weeks(df, None)
+
+    matches = df[df["School_Slug"].astype(str) == school_slug]
+    if matches.empty:
+        st.warning(f"Team not found for slug `{school_slug}` in {season}.")
+        _render_game_log_back_link(sport)
+        return
+
+    team_row = matches.iloc[0]
+    team_name = str(team_row.get("Team") or label or school_slug)
+    conference = team_row.get("Conference")
+    games = team_row.get("Games") if isinstance(team_row.get("Games"), list) else []
+    # Existing caches often lack Home; fill from player game logs when available.
+    games = _enrich_team_games_home(
+        games,
+        home_by_opponent=_home_by_opponent_from_players(annotated_players, school_slug),
+    )
+
+    _render_game_log_back_link(sport)
+    st.markdown(
+        f'<p class="nj-eyebrow">{sport.label} · {season}</p>'
+        f"<h1>{team_name}</h1>"
+        f'<p class="nj-page-sub">Team game log'
+        + (f" · {conference}" if conference else "")
+        + "</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p class="nj-last-updated">Last updated {_format_timestamp(last_updated)}</p>',
+        unsafe_allow_html=True,
+    )
+
+    games_df = _team_games_frame(games)
+    if games_df.empty:
+        st.info("No schedule games found for this team.")
+        return
+    st.metric("Games", len(games_df))
+    st.dataframe(games_df, use_container_width=True, hide_index=True)
+
+
+def render_player_game_log(
+    sport: SportPageConfig,
+    *,
+    season: str,
+    player_slug: str,
+    label: str | None = None,
+    category: str | None = None,
+) -> None:
+    players_cache = player_cache_path_for_season(sport, season)
+    raw_players, last_updated = load_raw_players(players_cache)
+    players = _annotate_player_games(raw_players) if raw_players else []
+    matches = [
+        p
+        for p in players
+        if isinstance(p, dict) and str(p.get("Player_Slug") or "") == player_slug
+    ]
+    if not matches:
+        st.warning(f"Player not found for slug `{player_slug}` in {season}.")
+        _render_game_log_back_link(sport)
+        return
+
+    if category:
+        categorized = [
+            p for p in matches if str(p.get("Stat_Category") or "") == category
+        ]
+        if categorized:
+            matches = categorized
+
+    primary = matches[0]
+    player_name = str(primary.get("Name") or label or player_slug)
+    team_name = primary.get("Team")
+    positions = primary.get("Positions")
+
+    _render_game_log_back_link(sport)
+    subtitle_bits = [f"{sport.label} · {season}", "Player game log"]
+    if team_name:
+        subtitle_bits.append(str(team_name))
+    if positions:
+        subtitle_bits.append(str(positions))
+    st.markdown(
+        f'<p class="nj-eyebrow">{sport.label} · {season}</p>'
+        f"<h1>{player_name}</h1>"
+        f'<p class="nj-page-sub">{" · ".join(subtitle_bits[1:])}</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p class="nj-last-updated">Last updated {_format_timestamp(last_updated)}</p>',
+        unsafe_allow_html=True,
+    )
+
+    game_frames: list[pd.DataFrame] = []
+    for player in matches:
+        games = player.get("Games") if isinstance(player.get("Games"), list) else []
+        cat = str(player.get("Stat_Category") or "") or None
+        frame = _player_games_frame(games, category=cat if sport.key == "football" else None)
+        if not frame.empty:
+            game_frames.append(frame)
+
+    if not game_frames:
+        if sport.key == "football":
+            st.info(
+                "No per-game logs found for this player. Re-run "
+                "`py -3 football_player_scraper.py` without `--no-games` to populate game logs."
+            )
+        else:
+            st.info("No game log found for this player.")
+        return
+
+    games_df = pd.concat(game_frames, ignore_index=True)
+    st.metric("Games", len(games_df))
+    st.dataframe(games_df, use_container_width=True, hide_index=True)
+
+
 def render_sport_page(sport: SportPageConfig) -> None:
+    _enable_same_tab_in_app_links()
+
+    detail = _read_game_log_query()
+    detail_view = (detail.get("view") or "").lower()
+    detail_slug = detail.get("slug")
+    detail_season = detail.get("season") or DEFAULT_UI_SEASON
+    if detail_view in ("team", "player") and detail_slug:
+        if detail_view == "team":
+            render_team_game_log(
+                sport,
+                season=detail_season,
+                school_slug=detail_slug,
+                label=detail.get("label"),
+            )
+        else:
+            render_player_game_log(
+                sport,
+                season=detail_season,
+                player_slug=detail_slug,
+                label=detail.get("label"),
+                category=detail.get("category"),
+            )
+        return
+
     logo_uri = _logo_png_data_uri()
     logo_html = (
         f'<div class="nj-sport-hero-logo-wrap">'
@@ -2456,12 +3008,19 @@ def render_sport_page(sport: SportPageConfig) -> None:
             st.warning(f"No teams found for conference: {selected}")
         elif view.empty and week_key:
             st.warning("No teams found for the selected week.")
-        table = view[display_cols] if not view.empty else view
+        if view.empty:
+            linked_view, link_cols = view, set()
+        else:
+            linked_view, link_cols = _with_team_game_log_links(view, sport, season)
+        table = linked_view[display_cols] if not linked_view.empty else linked_view
         st.dataframe(
             table,
             use_container_width=True,
             hide_index=True,
-            column_config=_leaderboard_column_config(display_cols),
+            column_config=_leaderboard_column_config(
+                display_cols,
+                link_cols=link_cols,
+            ),
         )
 
         if not view.empty:
