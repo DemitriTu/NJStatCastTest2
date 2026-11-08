@@ -434,12 +434,36 @@ def _opponent_name_from_schedule_row(row) -> str:
     return ""
 
 
+def _home_away_from_schedule_row(row) -> bool | None:
+    """True=home, False=away from NJ.com '@' / 'vs.' marker on the opponent cell."""
+    tds = row.locator("td")
+    if tds.count() < 2:
+        return None
+    opp_cell = tds.nth(1)
+    marker = opp_cell.locator("span.mr-2").first
+    if marker.count() > 0:
+        text = marker.inner_text().strip().lower()
+        if text.startswith("@"):
+            return False
+        if text.startswith("vs"):
+            return True
+    raw = opp_cell.inner_text().strip().lower()
+    if raw.startswith("@"):
+        return False
+    if raw.startswith("vs"):
+        return True
+    return None
+
+
 def _parse_schedule_game_row(row) -> dict | None:
     """Parse one schedule row; returns game dict or None if opponent missing."""
     opponent = _opponent_name_from_schedule_row(row)
     if not opponent:
         return None
     game: dict = {"Opponent": opponent}
+    home = _home_away_from_schedule_row(row)
+    if home is not None:
+        game["Home"] = home
     tds = row.locator("td")
     n = tds.count()
     if n >= 1:

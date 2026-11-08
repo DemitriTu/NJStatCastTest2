@@ -34,8 +34,16 @@ st.set_page_config(
 pg = st.navigation(
     [
         st.Page(_home, title="Home", default=True),
-        st.Page(BASKETBALL_CONFIG.page_path, title="Basketball"),
-        st.Page(FOOTBALL_CONFIG.page_path, title="Football"),
+        st.Page(
+            BASKETBALL_CONFIG.page_path,
+            title="Basketball",
+            url_path=BASKETBALL_CONFIG.key,
+        ),
+        st.Page(
+            FOOTBALL_CONFIG.page_path,
+            title="Football",
+            url_path=FOOTBALL_CONFIG.key,
+        ),
     ],
     position="top",
 )
